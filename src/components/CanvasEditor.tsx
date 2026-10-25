@@ -54,6 +54,7 @@ import { CanvasNodeView } from './CanvasNodeView';
 import { CanvasDock, type DockTool } from './CanvasDock';
 import { AccentPicker } from './AccentPicker';
 import { ConnectMenu, type ConnectOptionId } from './ConnectMenu';
+import { CanvasContextMenu, type ContextCreateId } from './CanvasContextMenu';
 import { ProviderBadge } from './ProviderBadge';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useRoomStore } from '../store/useRoomStore';
@@ -301,6 +302,7 @@ function EditorCanvas() {
   const [tool, setTool] = useState<DockTool>('select');
   const [shapeMenuOpen, setShapeMenuOpen] = useState(false);
   const [draftStroke, setDraftStroke] = useState<CanvasStroke | null>(null);
+  const [canvasMenu, setCanvasMenu] = useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null);
   const [connectMenu, setConnectMenu] = useState<{
     x: number;
     y: number;
@@ -337,6 +339,29 @@ function EditorCanvas() {
       text: 'Local chat preview. Create a share room to chat live with collaborators.',
     },
   ]);
+
+  const createFromCanvasMenu = (id: ContextCreateId) => {
+    const menu = canvasMenu;
+    if (!menu) return;
+    setCanvasMenu(null);
+    closeDetails();
+    const at = { x: menu.flowX - 134, y: menu.flowY - 52 };
+    if (id === 'image') {
+      addNode('model', at, 'sd-turbo', { title: 'Image Generation' }, true);
+    } else if (id === 'video') {
+      addNode('model', at, 'ltx-video-2b', { title: 'Video Generation' }, true);
+    } else if (id === 'prompt') {
+      addNode('prompt', at, undefined, { title: 'Prompt' }, true);
+    } else if (id === 'reference') {
+      addNode('reference', at, undefined, { title: 'Image' }, true);
+    } else if (id === 'output') {
+      addNode('output', at, undefined, { title: 'Output' }, true);
+    } else if (id === 'sticky') {
+      addNode('note', at, undefined, { title: 'Sticky note', variant: 'sticky', note: '' }, true);
+    } else if (id === 'table') {
+      addNode('table', at, undefined, { title: 'Table' }, true);
+    }
+  };
 
   const createFromConnectMenu = (optionId: ConnectOptionId) => {
     const menu = connectMenu;
@@ -455,6 +480,7 @@ function EditorCanvas() {
         setTitleMenu(false);
         setShapeMenuOpen(false);
         setConnectMenu(null);
+        setCanvasMenu(null);
         closeDetails();
         setTool('select');
         setCommentMode(false);
@@ -736,7 +762,13 @@ function EditorCanvas() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onPaneContextMenu={(event) => {
+            event.preventDefault();
+            const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+            setCanvasMenu({ x: event.clientX, y: event.clientY, flowX: position.x, flowY: position.y });
+          }}
           onPaneClick={(event) => {
+            setCanvasMenu(null);
             setSelected(null);
             closeDetails();
             setTitleMenu(false);
@@ -1116,6 +1148,15 @@ function EditorCanvas() {
           onVersions={() => setVersionsOpen(true)}
           addOpen={paletteOpen}
         />
+
+        {canvasMenu && (
+          <CanvasContextMenu
+            x={canvasMenu.x}
+            y={canvasMenu.y}
+            onCreate={createFromCanvasMenu}
+            onClose={() => setCanvasMenu(null)}
+          />
+        )}
 
         {connectMenu && (
           <ConnectMenu
