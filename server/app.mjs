@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -81,6 +81,18 @@ function keyOk(req) {
   const given = String(req.headers['x-osc-key'] || String(req.headers.authorization || '').replace(/^Bearer\s+/i, ''));
   const a = Buffer.from(given), b = Buffer.from(accessKey);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+// <img> and <video> cannot send the key header, so a keyed request also sets a session cookie that is good for GET /view only.
+// The cookie holds a value derived from the key, never the key itself.
+const viewToken = () => createHmac('sha256', accessKey).update('osc-view').digest('hex');
+function viewCookieOk(req) {
+  const given = Buffer.from(cookieValue(req, 'osc_view') || ''), want = Buffer.from(viewToken());
+  return given.length === want.length && timingSafeEqual(given, want);
+}
+function viewCookie(req) {
+  const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
+  return `osc_view=${viewToken()}; Path=/comfy; HttpOnly; SameSite=Lax${secure}`;
 }
 
 // Health for the badge. Without the key the visitor gets only 'online' and the ComfyUI version, never paths, memory or devices.
@@ -290,10 +302,12 @@ async function proxyComfy(req, res) {
     sendJson(res, 413, { error: 'too large' });
     return;
   }
-  if (!keyOk(req)) {
+  const keyed = keyOk(req);
+  if (!keyed && !(req.method === 'GET' && targetPath === '/view' && viewCookieOk(req))) {
     sendJson(res, 401, { error: 'locked', message: 'This ComfyUI is private. Add the access key in the ComfyUI panel.' });
     return;
   }
+  if (keyed && accessKey) res.setHeader('set-cookie', viewCookie(req));
 
   try {
     if (targetPath === '/prompt' && req.method === 'POST') {

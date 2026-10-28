@@ -110,7 +110,7 @@ export class ComfyClient {
   }
 
   async history(promptId: string): Promise<Record<string, ComfyHistoryEntry>> {
-    const response = await this.request(`/history/${encodeURIComponent(promptId)}`);
+    const response = await this.request(`/history/${encodeURIComponent(promptId)}`, { headers: this.headers(false) });
     return response.json();
   }
 
@@ -133,7 +133,9 @@ export class ComfyClient {
       try {
         const history = await this.history(promptId);
         entry = history[promptId];
-      } catch {
+      } catch (error) {
+        // A private gateway refusing the key will never succeed on retry; surface it instead of polling forever.
+        if (error instanceof Error && error.message.includes('is private')) throw error;
         // The history endpoint can 404 while the job is still queued.
         continue;
       }
