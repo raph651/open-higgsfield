@@ -15,12 +15,14 @@ import {
   type NodeTypes,
 } from '@xyflow/react';
 import {
+  ArrowLeft,
   Bell,
   Check,
   ChevronDown,
   ClipboardPaste,
   Copy,
   Download,
+  Eraser,
   FolderOpen,
   Frame,
   History as HistoryIcon,
@@ -37,6 +39,8 @@ import {
   Search,
   Send,
   Share2,
+  Moon,
+  Sun,
   Sparkles,
   Redo2,
   Trash2,
@@ -52,14 +56,14 @@ import { Inspector } from './Inspector';
 import { GenerationPanel } from './GenerationPanel';
 import { CanvasNodeView } from './CanvasNodeView';
 import { CanvasDock, type DockTool } from './CanvasDock';
-import { AccentPicker } from './AccentPicker';
 import { ConnectMenu, type ConnectOptionId } from './ConnectMenu';
 import { CanvasContextMenu, type ContextCreateId } from './CanvasContextMenu';
 import { ProviderBadge } from './ProviderBadge';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useRoomStore } from '../store/useRoomStore';
+import { useThemeStore } from '../store/useThemeStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { getAccent } from '../lib/theme';
+import { ACCENTS, getAccent } from '../lib/theme';
 import { fileToNodeMedia } from '../lib/media';
 import type { CanvasAsset, CanvasNodeData, CanvasStroke, ModelId, NodeKind, ShapeKind } from '../types';
 
@@ -103,6 +107,11 @@ function EditorCanvas() {
   const setDragging = useCanvasStore((state) => state.setDragging);
   const markNodesTouched = useCanvasStore((state) => state.markNodesTouched);
   const closeDetails = useCanvasStore((state) => state.closeDetails);
+  const goPageBack = useCanvasStore((state) => state.goPageBack);
+  const pageParentTitle = useCanvasStore((state) => {
+    const active = state.activeId ? state.docs[state.activeId] : null;
+    return active?.pageParentId ? state.docs[active.pageParentId]?.title ?? 'Canvas' : null;
+  });
   const snapshotHistory = useCanvasStore((state) => state.snapshotHistory);
   const undo = useCanvasStore((state) => state.undo);
   const redo = useCanvasStore((state) => state.redo);
@@ -136,6 +145,7 @@ function EditorCanvas() {
   const addComment = useCanvasStore((state) => state.addComment);
   const addStroke = useCanvasStore((state) => state.addStroke);
   const clearStrokes = useCanvasStore((state) => state.clearStrokes);
+  const removeStroke = useCanvasStore((state) => state.removeStroke);
   const addReaction = useCanvasStore((state) => state.addReaction);
   const removeReaction = useCanvasStore((state) => state.removeReaction);
   const resolveComment = useCanvasStore((state) => state.resolveComment);
@@ -146,7 +156,14 @@ function EditorCanvas() {
   const stageRef = useRef<HTMLDivElement>(null);
   const { fitView, zoomIn, zoomOut, setCenter, screenToFlowPosition } = useReactFlow();
   const { zoom } = useViewport();
-  const accent = getAccent(useSettingsStore((state) => state.accent));
+  const accentId = useSettingsStore((state) => state.accent);
+  const accent = getAccent(accentId);
+  const setAccent = useSettingsStore((state) => state.setAccent);
+  const connection = useSettingsStore((state) => state.connection);
+  const useComfy = useSettingsStore((state) => state.useComfy);
+  const openConnection = useSettingsStore((state) => state.openConnection);
+  const theme = useThemeStore((state) => state.theme);
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const ignoreSelectionRef = useRef(false);
   const renderedEdges = useMemo(
     () =>
@@ -256,6 +273,7 @@ function EditorCanvas() {
   const addTextCard = () =>
     insertAnnotation('note', { title: 'Text', variant: 'text', note: '' }, 'Text added');
   const addTableCard = () => insertAnnotation('table', { title: 'Table' }, 'Table added');
+  const addPageCard = () => insertAnnotation('page', { title: 'Page' }, 'Page added');
   const addShapeCard = (shape: ShapeKind) => {
     const label = shape === 'rect' ? 'Rectangle' : shape === 'ellipse' ? 'Ellipse' : 'Diamond';
     insertAnnotation('shape', { title: label, shape }, `${label} added`);
@@ -325,6 +343,7 @@ function EditorCanvas() {
   const [commentDraft, setCommentDraft] = useState<{ x: number; y: number } | null>(null);
   const [commentText, setCommentText] = useState('');
   const [titleMenu, setTitleMenu] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(true);
   const [minimapOpen, setMinimapOpen] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -335,7 +354,7 @@ function EditorCanvas() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
-      author: 'Framegraph',
+      author: 'OpenFrame',
       text: 'Local chat preview. Create a share room to chat live with collaborators.',
     },
   ]);
@@ -360,6 +379,8 @@ function EditorCanvas() {
       addNode('note', at, undefined, { title: 'Sticky note', variant: 'sticky', note: '' }, true);
     } else if (id === 'table') {
       addNode('table', at, undefined, { title: 'Table' }, true);
+    } else if (id === 'page') {
+      addNode('page', at, undefined, { title: 'Page' }, true);
     }
   };
 
@@ -423,6 +444,45 @@ function EditorCanvas() {
     return () => window.removeEventListener('pointerdown', onPointerDown);
   }, [connectMenu]);
 
+
+  useEffect(() => {
+    if (!paletteOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Element &&
+        (event.target.closest('.add-node-panel') || event.target.closest('.dock-btn--add'))
+      ) {
+        return;
+      }
+      setPaletteOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPaletteOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [paletteOpen]);
+
+  useEffect(() => {
+    if (!accountOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('.canvas-account')) return;
+      setAccountOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAccountOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [accountOpen]);
 
   useEffect(() => {
     if (!doc) return;
@@ -492,6 +552,7 @@ function EditorCanvas() {
         if (key === 'v') { selectTool('select'); return; }
         if (key === 'h') { selectTool('pan'); return; }
         if (key === 'p') { selectTool('draw'); return; }
+        if (key === 'e') { selectTool('erase'); return; }
         if (key === 't') { addTextCard(); return; }
         if (key === 's') { addStickyNote(); return; }
         if (key === 'c') { selectTool('comment'); return; }
@@ -609,8 +670,7 @@ function EditorCanvas() {
     (kind: NodeKind, modelId?: ModelId, title?: string) => {
       const rect = stageRef.current?.getBoundingClientRect();
       if (!rect) {
-        addNode(kind, undefined, modelId, title ? { title } : undefined, false);
-        clearSelection();
+        addNode(kind, undefined, modelId, title ? { title } : undefined, true);
         return;
       }
       const base = screenToFlowPosition({
@@ -640,8 +700,7 @@ function EditorCanvas() {
           break;
         }
       }
-      addNode(kind, at, modelId, title ? { title } : undefined, false);
-      clearSelection();
+      addNode(kind, at, modelId, title ? { title } : undefined, true);
       showToast('Node added');
     },
     [addNode, screenToFlowPosition, doc],
@@ -653,7 +712,7 @@ function EditorCanvas() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${doc.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'framegraph'}.json`;
+    anchor.download = `${doc.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'openframe'}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
     showToast('Canvas exported as JSON');
@@ -729,7 +788,14 @@ function EditorCanvas() {
   return (
     <div className={`editor editor--canvas ${dragging ? 'is-node-dragging' : ''}`}>
       <div
-        className={`canvas-stage ${dragActive ? 'is-drag-active' : ''}`}
+        className={`canvas-stage ${dragActive ? 'is-drag-active' : ''} ${tool === 'erase' ? 'is-erasing' : ''}`}
+        onClickCapture={(event) => {
+          if (!(event.target instanceof Element) || !event.target.classList.contains('react-flow__pane')) return;
+          if (!selectedId && !canvasMenu) return;
+          setCanvasMenu(null);
+          setSelected(null);
+          closeDetails();
+        }}
         ref={stageRef}
         onPointerDownCapture={() => {
           ignoreSelectionRef.current = false;
@@ -881,7 +947,7 @@ function EditorCanvas() {
             variant={BackgroundVariant.Dots}
             gap={22}
             size={1.15}
-            color="rgba(255,255,255,0.14)"
+            color="var(--grid-dot)"
           />
           <ViewportPortal>
             <svg className="ink-layer" width={1} height={1} aria-hidden="true">
@@ -905,6 +971,7 @@ function EditorCanvas() {
               {(doc.strokes ?? []).map((stroke) => (
                 <path
                   key={stroke.id}
+                  className="ink-stroke"
                   d={strokePath(stroke.points)}
                   fill="none"
                   stroke={stroke.color}
@@ -913,6 +980,24 @@ function EditorCanvas() {
                   strokeLinejoin="round"
                 />
               ))}
+              {tool === 'erase' &&
+                (doc.strokes ?? []).map((stroke) => (
+                  <path
+                    key={`${stroke.id}-erase`}
+                    d={strokePath(stroke.points)}
+                    fill="none"
+                    stroke="transparent"
+                    strokeWidth={Math.max(20, stroke.width + 16)}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ pointerEvents: 'stroke', cursor: 'crosshair' }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      removeStroke(stroke.id);
+                    }}
+                  />
+                ))}
               {draftStroke && (
                 <path
                   d={strokePath(draftStroke.points)}
@@ -1014,6 +1099,12 @@ function EditorCanvas() {
 
         <header className="canvas-topbar">
           <div className="canvas-topbar__left">
+            {doc?.pageParentId && (
+              <button className="canvas-back" onClick={goPageBack} title="Back to parent canvas">
+                <ArrowLeft size={13} />
+                <span>{pageParentTitle}</span>
+              </button>
+            )}
             <button className="canvas-logo" onClick={goDashboard} title="Back to studio">
               <Logo compact />
             </button>
@@ -1079,47 +1170,101 @@ function EditorCanvas() {
           </div>
 
           <div className="canvas-topbar__right">
-            {roomId && (
-              <span className={roomConnected ? 'room-pill is-live' : 'room-pill'}>
-                <span className={`status-dot ${roomConnected ? 'status-dot--live' : ''}`} />
-                {roomConnected ? `Live · ${peers}` : 'Connecting'}
-              </span>
-            )}
-            <ProviderBadge compact />
-            <AccentPicker />
             <button
-              className={assetsOpen ? 'canvas-icon is-active' : 'canvas-icon'}
-              onClick={() => {
-                setSelected(null);
-                setAssetsOpen((value) => !value);
-              }}
-              title="Assets"
+              type="button"
+              className={`comfy-status ${!useComfy ? 'is-demo' : connection === 'online' ? 'is-online' : connection === 'offline' ? 'is-offline' : ''}`}
+              onClick={openConnection}
+              title={!useComfy ? 'Demo mode — click to connect ComfyUI' : connection === 'online' ? 'ComfyUI connected' : 'ComfyUI not connected — click to configure'}
             >
-              <FolderOpen size={16} />
+              <span className={`comfy-status__dot ${!useComfy ? 'is-demo' : connection === 'online' ? 'is-online' : connection === 'offline' ? 'is-offline' : ''}`} />
+              <span>ComfyUI</span>
             </button>
-            <button className="canvas-icon" onClick={() => showToast('No new notifications')} title="Notifications">
-              <Bell size={16} />
-            </button>
-            <button
-              className={chatOpen ? 'canvas-action is-active' : 'canvas-action'}
-              onClick={() => { setChatTab('chat'); setChatOpen((value) => !value); }}
-            >
-              <MessageCircle size={15} /> Chat
-            </button>
-            <button
-              className="canvas-action canvas-action--run"
-              onClick={() => (running ? cancelRun() : void run('all'))}
-              disabled={!running && modelCount === 0}
-            >
-              {running ? <LoaderCircle size={13} className="spin" /> : <Play size={12} fill="currentColor" />}
-              {running ? 'Cancel' : 'Run'}
-            </button>
-            <button className="canvas-action canvas-action--share" onClick={copyShare}>
-              <Share2 size={14} /> Share
-            </button>
-            <button className="avatar avatar--sm" onClick={() => showToast('Local profile')}>AR</button>
+            <div className="canvas-action-pill">
+              <div className="canvas-account">
+                <button
+                  className="canvas-avatar-btn"
+                  onClick={() => setAccountOpen((value) => !value)}
+                  aria-label="Account menu"
+                  aria-expanded={accountOpen}
+                >
+                  <span className="avatar avatar--sm avatar--ring">AR</span>
+                  <ChevronDown size={12} />
+                </button>
+                {accountOpen && (
+                  <div className="account-menu" role="menu" aria-label="Account">
+                    <div className="account-menu__head">
+                      <span className="avatar avatar--sm">AR</span>
+                      <div>
+                        <strong>Alex R.</strong>
+                        <span>Local workspace</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setAssetsOpen((value) => !value);
+                        setAccountOpen(false);
+                      }}
+                    >
+                      <FolderOpen size={14} /> Assets
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        toggleTheme();
+                        setAccountOpen(false);
+                      }}
+                    >
+                      {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+                      {theme === 'dark' ? 'Bright theme' : 'Night theme'}
+                    </button>
+                    <span className="account-menu__label">Accent</span>
+                    <div className="account-menu__swatches">
+                      {ACCENTS.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={item.id === accentId ? 'account-swatch is-selected' : 'account-swatch'}
+                          style={{ background: item.color }}
+                          title={item.label}
+                          aria-label={item.label}
+                          onClick={() => setAccent(item.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                className="canvas-pill-icon"
+                onClick={() => showToast('No new notifications')}
+                title="Notifications"
+                aria-label="Notifications"
+              >
+                <Bell size={16} />
+              </button>
+              <button
+                className={chatOpen ? 'canvas-pill-button is-active' : 'canvas-pill-button'}
+                onClick={() => { setChatTab('chat'); setChatOpen((value) => !value); }}
+              >
+                <MessageCircle size={15} /> Chat
+                {roomId && <span className={`canvas-live-dot ${roomConnected ? 'is-live' : ''}`} />}
+              </button>
+              <button className="canvas-pill-button canvas-pill-button--share" onClick={copyShare}>
+                <Share2 size={14} /> Share
+              </button>
+            </div>
           </div>
         </header>
+
+        {tool === 'erase' && (
+          <div className="erase-hint">
+            <Eraser size={13} /> Eraser · click a drawing to remove
+            <button type="button" onClick={() => selectTool('select')}>Done</button>
+          </div>
+        )}
 
         {tool === 'draw' && (
           <div
@@ -1143,9 +1288,9 @@ function EditorCanvas() {
           onToggleShapeMenu={() => setShapeMenuOpen((value) => !value)}
           onShape={addShapeCard}
           onTable={addTableCard}
+          onPage={addPageCard}
           onSearch={() => setSearchOpen(true)}
           onAdd={() => setPaletteOpen((value) => !value)}
-          onVersions={() => setVersionsOpen(true)}
           addOpen={paletteOpen}
         />
 

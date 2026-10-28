@@ -4,7 +4,7 @@
 Higgsfield promised to open source its platform. It didn't. Comfy Org's challenge asks for open rebuilds on ComfyUI.
 
 **0:12–0:25 — The app**
-Framegraph: a node canvas where every node is a ComfyUI workflow. Show the studio dashboard, saved canvases and templates.
+OpenFrame: a node canvas where every node is a ComfyUI workflow. Show the studio dashboard, saved canvases and templates.
 
 **0:25–0:45 — Build a pipeline**
 New canvas → Prompt node → SD-Turbo image node → connect them. Show the connection panel proving `ComfyUI 0.42.0 · mps · 24 GB`.

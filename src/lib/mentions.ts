@@ -1,3 +1,6 @@
+export const PROMPT_PLACEHOLDER =
+  'Use @ to mention a reference. Example: Make the character in @Image act using the moves and camera in @Video and add the music from @Audio.';
+
 import type { CanvasAsset, CanvasDoc } from '../types';
 
 export interface MentionItem {
@@ -27,6 +30,48 @@ function keysFor(item: { url: string; label: string }): string[] {
  * Builds the deduplicated @-reference lists for a model node.
  * A reference already linked or present on canvas never repeats in the asset group.
  */
+export function mentionHandle(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'reference';
+}
+
+export function buildMentionLookup(
+  doc: CanvasDoc | null,
+  nodeId: string,
+  assets: CanvasAsset[],
+): Map<string, MentionItem> {
+  const lookup = new Map<string, MentionItem>();
+  const byUrl = new Map<string, MentionItem>();
+  for (const group of buildMentionGroups(doc, nodeId, assets)) {
+    for (const item of group.items) {
+      lookup.set(mentionHandle(item.label), item);
+      if (item.url) byUrl.set(item.url, item);
+      const asset = assets.find((entry) => entry.id === item.assetId || entry.url === item.url);
+      if (asset) {
+        lookup.set(mentionHandle(asset.name.replace(/\.[^.]+$/, '')), item);
+      }
+    }
+  }
+  for (const node of doc?.nodes ?? []) {
+    if (node.data.kind !== 'reference') continue;
+    const url = node.data.previewUrl ?? node.data.outputUrl;
+    const item = (url ? byUrl.get(url) : undefined) ?? {
+      id: node.id,
+      nodeId: node.id,
+      label: node.data.label ?? node.data.title,
+      url: '',
+      kind: 'image' as const,
+    };
+    lookup.set(mentionHandle(item.label), item);
+    for (const alias of node.data.mentionAliases ?? []) lookup.set(alias, item);
+    const asset = assets.find((entry) => entry.url === url);
+    if (asset) lookup.set(mentionHandle(asset.name.replace(/\.[^.]+$/, '')), item);
+  }
+  return lookup;
+}
+
 export function buildMentionGroups(
   doc: CanvasDoc | null,
   nodeId: string,

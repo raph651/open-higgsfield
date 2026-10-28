@@ -1,13 +1,23 @@
-import { useRef, useState } from 'react';
-import { Handle, NodeResizer, Position, type NodeProps } from '@xyflow/react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Handle, NodeResizer, NodeToolbar, Position, type NodeProps } from '@xyflow/react';
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   AlertTriangle,
+  Bold,
   ChevronDown,
+  Clock3,
   Image as ImageIcon,
   ImagePlus,
+  Italic,
+  Layers,
   LoaderCircle,
   Maximize2,
+  MoreHorizontal,
   Play,
+  Plus,
   Sparkles,
   Ungroup,
   Upload,
@@ -22,7 +32,10 @@ import { Logo } from './Logo';
 import { ModelPicker } from './ModelPicker';
 import { GenerationTypePicker, type GenerationFamily } from './GenerationTypePicker';
 import { MentionMenu } from './MentionMenu';
-import { buildMentionGroups, type MentionItem } from '../lib/mentions';
+import { PromptMirror, syncMirrorScroll, syncPromptMirror } from './PromptMirror';
+import { ToolPicker } from './ToolPicker';
+import { buildMentionGroups, buildMentionLookup, mentionHandle, PROMPT_PLACEHOLDER, type MentionItem } from '../lib/mentions';
+import { announcePopover, subscribePopoverOpen } from '../lib/popoverBus';
 
 const STATUS_LABEL: Record<string, string> = {
   idle: 'Idle',
@@ -42,13 +55,18 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
   const model = (data.model ? MODEL_BY_ID[data.model] : null) ?? MODELS[0];
   const setSelected = useCanvasStore((state) => state.setSelected);
   const openDetails = useCanvasStore((state) => state.openDetails);
+  const openPage = useCanvasStore((state) => state.openPage);
   const storeSelected = useCanvasStore((state) => state.selectedId === id);
   const updateNodeData = useCanvasStore((state) => state.updateNodeData);
+  const doc = useCanvasStore((state) => (state.activeId ? state.docs[state.activeId] : null));
+  const assets = useCanvasStore((state) => state.assets);
   const run = useCanvasStore((state) => state.run);
   const running = useCanvasStore((state) => state.running);
   const addAsset = useCanvasStore((state) => state.addAsset);
   const showToast = useCanvasStore((state) => state.showToast);
   const ungroupSelection = useCanvasStore((state) => state.ungroupSelection);
+  const undo = useCanvasStore((state) => state.undo);
+  const redo = useCanvasStore((state) => state.redo);
   const storedWidth = useCanvasStore((state) => {
     const doc = state.activeId ? state.docs[state.activeId] : null;
     return doc?.nodes.find((node) => node.id === id)?.width ?? null;
@@ -61,17 +79,23 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
     const doc = state.activeId ? state.docs[state.activeId] : null;
     return doc?.nodes.filter((node) => node.parentId === id).length ?? 0;
   });
+  const pageNodeCount = useCanvasStore((state) =>
+    data.kind === 'page' && data.pageId ? state.docs[data.pageId]?.nodes.length ?? 0 : 0,
+  );
   const position = useCanvasStore((state) => {
     const doc = state.activeId ? state.docs[state.activeId] : null;
     return doc?.nodes.find((item) => item.id === id)?.position ?? null;
   });
-  const doc = useCanvasStore((state) => (state.activeId ? state.docs[state.activeId] : null));
-  const assets = useCanvasStore((state) => state.assets);
   const addNode = useCanvasStore((state) => state.addNode);
   const onConnect = useCanvasStore((state) => state.onConnect);
   const fileRef = useRef<HTMLInputElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
+  const pendingCaretRef = useRef<number | null>(null);
   const [mention, setMention] = useState<{ query: string; start: number; end: number } | null>(null);
+  const [tableMenu, setTableMenu] = useState<'color' | 'more' | null>(null);
+  const [quickNumberMenu, setQuickNumberMenu] = useState<'duration' | 'batch' | null>(null);
+  const quickNumberSource = `node-number-${id}`;
+  const [quickNumberPos, setQuickNumberPos] = useState<{ left: number; top: number; width: number } | null>(null);
 
   const uploadReference = async (file?: File) => {
     if (!file) return;
@@ -141,7 +165,9 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
     if (!mention) return;
     const value = promptRef.current?.value ?? data.prompt ?? '';
     let sourceId = item.nodeId;
+    let tokenLabel = item.label;
     if (item.assetId) {
+      tokenLabel = item.label.slice(0, 22).toUpperCase();
       const baseX = Math.max(40, (position?.x ?? 300) - 340);
       let y = position?.y ?? 200;
       for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -159,7 +185,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
           previewUrl: item.url,
           mediaKind: item.kind === 'video' ? 'video' : 'image',
           title: item.kind === 'video' ? 'Video' : 'Image',
-          label: item.label.slice(0, 22).toUpperCase(),
+          label: tokenLabel,
         },
         false,
       );
@@ -167,23 +193,113 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
     if (sourceId && !item.linked) {
       onConnect({ source: sourceId, target: id, sourceHandle: null, targetHandle: null });
     }
-    const handle = item.label
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'reference';
-    const token = `@${handle} `;
+    const token = `@${mentionHandle(tokenLabel)} `;
     updateNodeData(id, {
       prompt: `${value.slice(0, mention.start)}${token}${value.slice(mention.end)}`,
     });
     const caret = mention.start + token.length;
+    pendingCaretRef.current = caret;
     setMention(null);
-    window.requestAnimationFrame(() => {
-      promptRef.current?.focus();
-      promptRef.current?.setSelectionRange(caret, caret);
-    });
+    window.requestAnimationFrame(() => promptRef.current?.focus());
   };
 
   const mentionGroups = mention ? buildMentionGroups(doc, id, assets, mention.query) : [];
+  const mentionLookup = buildMentionLookup(doc, id, assets);
+
+  const toggleQuickNumber = (menu: 'duration' | 'batch', button: HTMLButtonElement) => {
+    if (quickNumberMenu === menu) {
+      setQuickNumberMenu(null);
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    const width = menu === 'batch' ? 186 : 196;
+    const height = menu === 'batch' ? 92 : 84;
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    const top = rect.top - height - 8 < 8 ? rect.bottom + 8 : rect.top - height - 8;
+    setQuickNumberPos({ left, top, width });
+    announcePopover(quickNumberSource);
+    setQuickNumberMenu(menu);
+  };
+
+  useLayoutEffect(() => {
+    const field = promptRef.current;
+    if (!field || data.kind !== 'model') return;
+    const atEnd = field.selectionEnd === field.value.length;
+    const scrollTop = field.scrollTop;
+    field.style.height = 'auto';
+    const maxHeight = 220;
+    field.style.height = `${Math.min(field.scrollHeight, maxHeight)}px`;
+    field.style.overflowY = field.scrollHeight > maxHeight ? 'auto' : 'hidden';
+    field.scrollTop = atEnd ? field.scrollHeight : scrollTop;
+    syncMirrorScroll(field);
+  }, [data.prompt, data.kind, selected, storeSelected]);
+
+  useLayoutEffect(() => {
+    const pending = pendingCaretRef.current;
+    if (pending === null) return;
+    const field = promptRef.current;
+    if (!field) return;
+    pendingCaretRef.current = null;
+    field.focus();
+    field.setSelectionRange(pending, pending);
+    syncMirrorScroll(field);
+  }, [data.prompt]);
+
+  useEffect(() => subscribePopoverOpen(quickNumberSource, () => setQuickNumberMenu(null)), [quickNumberSource]);
+
+  useEffect(() => {
+    if (!quickNumberMenu) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('.node__quick-number-wrap, .node-number-popover')) return;
+      setQuickNumberMenu(null);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setQuickNumberMenu(null);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [quickNumberMenu]);
+
+  if (data.kind === 'page') {
+    return (
+      <div
+        className={[
+          'node',
+          'node--page',
+          selected || storeSelected ? 'node--selected' : '',
+        ].join(' ')}
+        style={{
+          ['--node-accent' as string]: 'var(--accent-soft)',
+          width: storedWidth ?? undefined,
+          height: storedHeight ?? undefined,
+        }}
+      >
+        <NodeResizer
+          minWidth={260}
+          minHeight={180}
+          isVisible={selected || storeSelected}
+          lineClassName="node-resizer__line"
+          handleClassName="node-resizer__handle"
+        />
+        <span className="page-node__tag">{data.title || 'Page'}</span>
+        <div
+          className="page-node__card"
+          onDoubleClick={(event) => {
+            event.stopPropagation();
+            openPage(id);
+          }}
+          title="Double-click to open this page"
+        >
+          <strong>{pageNodeCount > 0 ? `${pageNodeCount} node${pageNodeCount === 1 ? '' : 's'}` : 'Empty page'}</strong>
+          <small>Double-click to enter</small>
+        </div>
+      </div>
+    );
+  }
 
   if (data.kind === 'group') {
     return (
@@ -223,7 +339,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
     >
       <NodeResizer
         minWidth={220}
-        minHeight={data.kind === 'model' ? 300 : 120}
+        minHeight={data.kind === 'model' ? 300 : data.kind === 'table' ? 220 : 120}
         isVisible={selected || storeSelected}
         lineClassName="node-resizer__line"
         handleClassName="node-resizer__handle"
@@ -302,69 +418,152 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
               </div>
             )}
 
+            {(selected || storeSelected) && (
             <div
               className="node__quick nodrag nowheel"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => event.stopPropagation()}
             >
                 <div className="node__quick-composer">
+                  <div className="prompt-field prompt-field--node">
+                  <PromptMirror value={data.prompt ?? ''} lookup={mentionLookup} />
                   <textarea
                     ref={promptRef}
                     className="nowheel"
                     value={data.prompt ?? ''}
-                    placeholder="Describe what you want to create…"
+                    placeholder={PROMPT_PLACEHOLDER}
                     rows={4}
                     onFocus={() => openDetails(id)}
                     onChange={(event) => {
                       const caret = event.target.selectionStart ?? event.target.value.length;
+                      pendingCaretRef.current = caret;
                       updateNodeData(id, { prompt: event.target.value });
                       syncMention(event.target.value, caret);
-                      window.requestAnimationFrame(() => {
-                        const field = promptRef.current;
-                        if (!field || document.activeElement !== field) return;
-                        if (field.selectionStart !== caret) field.setSelectionRange(caret, caret);
-                      });
                     }}
                     onKeyUp={(event) => syncMention(event.currentTarget.value, event.currentTarget.selectionStart ?? 0)}
                     onClick={(event) => syncMention(event.currentTarget.value, event.currentTarget.selectionStart ?? 0)}
                     onBlur={() => window.setTimeout(() => setMention(null), 140)}
                     onKeyDown={(event) => {
+                      event.stopPropagation();
+                      const mod = event.metaKey || event.ctrlKey;
+                      if (mod && event.key.toLowerCase() === 'z') {
+                        event.preventDefault();
+                        if (event.shiftKey) redo(true);
+                        else undo(true);
+                        return;
+                      }
+                      if (mod && event.key.toLowerCase() === 'y') {
+                        event.preventDefault();
+                        redo(true);
+                        return;
+                      }
                       if (event.key === 'Escape' && mention) {
-                        event.stopPropagation();
+                        event.preventDefault();
                         setMention(null);
                       }
                     }}
+                    onScroll={syncPromptMirror}
                   />
-                  {mention && <MentionMenu groups={mentionGroups} onSelect={chooseMention} />}
-                  {(selected || storeSelected) && (
-                  <div className="node__quick-meta-row">
-                    <label className="node__quick-chip" title="Resolution">
-                      <select
-                        value={data.resolution ?? (model?.family === 'video' ? '720p' : '1k')}
-                        aria-label="Resolution"
-                        onChange={(event) => updateNodeData(id, { resolution: event.target.value })}
-                      >
-                        {resolutionOptions.map((resolution) => (
-                          <option key={resolution} value={resolution}>{resolution}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={9} />
-                    </label>
-                    <label className="node__quick-chip" title="Aspect ratio">
-                      <select
-                        value={data.aspect ?? '1:1'}
-                        aria-label="Aspect ratio"
-                        onChange={(event) => updateNodeData(id, { aspect: event.target.value as typeof data.aspect })}
-                      >
-                        {ASPECTS.map((aspect) => (
-                          <option key={aspect} value={aspect}>{aspect}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={9} />
-                    </label>
                   </div>
-                  )}
-                  {(selected || storeSelected) && (
+                  {mention && <MentionMenu groups={mentionGroups} onSelect={chooseMention} />}
+                </div>
+                  <div className="node__quick-meta-row">
+                    <ToolPicker
+                      className="node__quick-chip"
+                      variant="node"
+                      label="Resolution"
+                      value={data.resolution ?? (model?.family === 'video' ? '720p' : '1k')}
+                      options={resolutionOptions}
+                      onChange={(next) => updateNodeData(id, { resolution: next })}
+                    />
+                    <ToolPicker
+                      className="node__quick-chip"
+                      variant="node"
+                      label="Aspect ratio"
+                      value={data.aspect ?? '1:1'}
+                      options={ASPECTS}
+                      display="aspect"
+                      onChange={(next) => updateNodeData(id, { aspect: next as typeof data.aspect })}
+                    />
+
+                    {model?.family === 'video' && (
+                      <div className="node__quick-number-wrap">
+                        <button
+                          type="button"
+                          className={quickNumberMenu === 'duration' ? 'node__quick-number is-active' : 'node__quick-number'}
+                          title="Clip duration"
+                          data-tooltip="Duration"
+                          aria-label="Clip duration"
+                          aria-expanded={quickNumberMenu === 'duration'}
+                          onClick={(event) => toggleQuickNumber('duration', event.currentTarget)}
+                        >
+                          <Clock3 size={9} /> {data.duration ?? 4}s
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="node__quick-number-wrap">
+                      <button
+                        type="button"
+                        className={quickNumberMenu === 'batch' ? 'node__quick-number is-active' : 'node__quick-number'}
+                        title="Number of Generations"
+                        data-tooltip="Number of Generations"
+                        aria-label="Number of Generations"
+                        aria-expanded={quickNumberMenu === 'batch'}
+                        onClick={(event) => toggleQuickNumber('batch', event.currentTarget)}
+                      >
+                        <Layers size={9} /> {data.batch ?? 1}
+                      </button>
+                    </div>
+                  </div>
+                  {quickNumberMenu && quickNumberPos &&
+                    createPortal(
+                      <div
+                        className={quickNumberMenu === 'batch' ? 'node-number-popover node-number-popover--portal node-number-popover--batch' : 'node-number-popover node-number-popover--portal'}
+                        style={{ left: quickNumberPos.left, top: quickNumberPos.top, width: quickNumberPos.width }}
+                      >
+                        {quickNumberMenu === 'duration' ? (
+                          <>
+                            <div className="node-number-popover__head">
+                              <span>Duration</span>
+                              <strong>{data.duration ?? 4}s</strong>
+                            </div>
+                            <input
+                              type="range"
+                              min={2}
+                              max={15}
+                              step={1}
+                              value={data.duration ?? 4}
+                              aria-label="Clip duration in seconds"
+                              onChange={(event) => updateNodeData(id, { duration: Number(event.target.value) })}
+                            />
+                            <div className="node-number-popover__ticks"><span>2s</span><span>15s</span></div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="node-number-popover__head">
+                              <span>Number of Generations</span>
+                            </div>
+                            <div className="node-number-popover__cells" role="radiogroup" aria-label="Number of Generations">
+                              {[1, 2, 3, 4].map((count) => (
+                                <button
+                                  key={count}
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={(data.batch ?? 1) === count}
+                                  aria-label={`${count} generation${count === 1 ? '' : 's'}`}
+                                  className={(data.batch ?? 1) === count ? 'is-active' : ''}
+                                  onClick={() => updateNodeData(id, { batch: count })}
+                                >
+                                  {count}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>,
+                      document.body,
+                    )}
                   <div className="node__quick-foot">
                     <ModelPicker
                       variant="node"
@@ -412,9 +611,8 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                       </button>
                     </div>
                   </div>
-                  )}
-                </div>
             </div>
+            )}
           </>
         )}
 
@@ -519,72 +717,203 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
 
         {data.kind === 'table' && (() => {
           const table = data.table ?? { columns: ['Beat', 'Shot', 'Note'], rows: [] };
+          const tableStyle = data.tableStyle ?? {};
           const patchTable = (next: { columns: string[]; rows: string[][] }) => updateNodeData(id, { table: next });
+          const patchStyle = (patch: Partial<NonNullable<typeof data.tableStyle>>) =>
+            updateNodeData(id, { tableStyle: { ...tableStyle, ...patch } });
           const setCell = (rowIndex: number, columnIndex: number, value: string) => {
             const rows = table.rows.map((row, r) =>
               r === rowIndex ? row.map((cell, c) => (c === columnIndex ? value : cell)) : row,
             );
             patchTable({ columns: table.columns, rows });
           };
+          const addRow = () =>
+            patchTable({ columns: table.columns, rows: [...table.rows, table.columns.map(() => '')] });
+          const addColumn = () =>
+            patchTable({
+              columns: [...table.columns, `Col ${table.columns.length + 1}`],
+              rows: table.rows.map((row) => [...row, '']),
+            });
+          const fontSize = tableStyle.size === 'small' ? 10 : tableStyle.size === 'large' ? 14 : 12;
+          const align = tableStyle.align ?? 'left';
+          const AlignIcon = align === 'center' ? AlignCenter : align === 'right' ? AlignRight : AlignLeft;
+          const cellStyle = {
+            fontWeight: tableStyle.bold ? 650 : 400,
+            fontStyle: tableStyle.italic ? 'italic' : 'normal',
+            textAlign: align,
+            fontSize,
+            color: tableStyle.color,
+          } as const;
           return (
-            <div
-              className="node__table-wrap nodrag"
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <table className="node__table">
-                <thead>
-                  <tr>
-                    {table.columns.map((column, columnIndex) => (
-                      <th key={columnIndex}>
-                        <input
-                          value={column}
-                          aria-label={`Column ${columnIndex + 1}`}
-                          onChange={(event) => {
-                            const columns = table.columns.map((item, index) =>
-                              index === columnIndex ? event.target.value : item,
-                            );
-                            patchTable({ columns, rows: table.rows });
-                          }}
-                        />
-                      </th>
+            <>
+              <NodeToolbar
+                isVisible={selected || storeSelected}
+                position={Position.Top}
+                offset={14}
+                className="table-toolbar"
+              >
+                <div
+                  className="table-toolbar__bar nodrag"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    className="table-tool"
+                    title="Text color"
+                    aria-label="Text color"
+                    onClick={() => setTableMenu(tableMenu === 'color' ? null : 'color')}
+                  >
+                    <span
+                      className="table-tool__color"
+                      style={{ background: tableStyle.color ?? '#f3f0fb' }}
+                    />
+                    <ChevronDown size={9} />
+                  </button>
+                  <select
+                    className="table-tool table-tool--size"
+                    value={tableStyle.size ?? 'medium'}
+                    aria-label="Text size"
+                    onChange={(event) => patchStyle({ size: event.target.value as 'small' | 'medium' | 'large' })}
+                  >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                  </select>
+                  <button
+                    type="button"
+                    className={tableStyle.bold ? 'table-tool is-active' : 'table-tool'}
+                    aria-pressed={tableStyle.bold ?? false}
+                    title="Bold"
+                    onClick={() => patchStyle({ bold: !tableStyle.bold })}
+                  >
+                    <Bold size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    className={tableStyle.italic ? 'table-tool is-active' : 'table-tool'}
+                    aria-pressed={tableStyle.italic ?? false}
+                    title="Italic"
+                    onClick={() => patchStyle({ italic: !tableStyle.italic })}
+                  >
+                    <Italic size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    className="table-tool"
+                    title={`Align ${align}`}
+                    onClick={() =>
+                      patchStyle({ align: align === 'left' ? 'center' : align === 'center' ? 'right' : 'left' })
+                    }
+                  >
+                    <AlignIcon size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    className={tableMenu === 'more' ? 'table-tool is-active' : 'table-tool'}
+                    title="More"
+                    aria-label="More table actions"
+                    onClick={() => setTableMenu(tableMenu === 'more' ? null : 'more')}
+                  >
+                    <MoreHorizontal size={14} />
+                  </button>
+                </div>
+                {tableMenu === 'color' && (
+                  <div className="table-toolbar__menu">
+                    {['#f3f0fb', 'var(--accent-soft)', 'var(--accent)', '#8bd3ff', '#6ee7b7', '#fcd34d', '#fda4af'].map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={tableStyle.color === color ? 'table-color is-selected' : 'table-color'}
+                        style={{ background: color }}
+                        aria-label={`Text color ${color}`}
+                        onClick={() => {
+                          patchStyle({ color });
+                          setTableMenu(null);
+                        }}
+                      />
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {table.rows.map((row, rowIndex) => (
-                    <tr key={rowIndex}>
-                      {table.columns.map((_, columnIndex) => (
-                        <td key={columnIndex}>
+                  </div>
+                )}
+                {tableMenu === 'more' && (
+                  <div className="table-toolbar__menu table-toolbar__menu--list">
+                    <button type="button" onClick={() => { addRow(); setTableMenu(null); }}>Add row</button>
+                    <button type="button" onClick={() => { addColumn(); setTableMenu(null); }}>Add column</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        patchTable({ columns: table.columns, rows: table.rows.map((row) => row.map(() => '')) });
+                        setTableMenu(null);
+                      }}
+                    >
+                      Clear cells
+                    </button>
+                  </div>
+                )}
+              </NodeToolbar>
+
+              <div
+                className="node__table-wrap nodrag"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <table className="node__table">
+                  <thead>
+                    <tr>
+                      {table.columns.map((column, columnIndex) => (
+                        <th key={columnIndex}>
                           <input
-                            value={row[columnIndex] ?? ''}
-                            aria-label={`Row ${rowIndex + 1} column ${columnIndex + 1}`}
-                            onChange={(event) => setCell(rowIndex, columnIndex, event.target.value)}
+                            value={column}
+                            aria-label={`Column ${columnIndex + 1}`}
+                            style={cellStyle}
+                            onChange={(event) => {
+                              const columns = table.columns.map((item, index) =>
+                                index === columnIndex ? event.target.value : item,
+                              );
+                              patchTable({ columns, rows: table.rows });
+                            }}
                           />
-                        </td>
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="node__table-actions">
+                  </thead>
+                  <tbody>
+                    {table.rows.map((row, rowIndex) => (
+                      <tr key={rowIndex}>
+                        {table.columns.map((_, columnIndex) => (
+                          <td key={columnIndex}>
+                            <input
+                              value={row[columnIndex] ?? ''}
+                              aria-label={`Row ${rowIndex + 1} column ${columnIndex + 1}`}
+                              style={cellStyle}
+                              onChange={(event) => setCell(rowIndex, columnIndex, event.target.value)}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
                 <button
-                  onClick={() => patchTable({ columns: table.columns, rows: [...table.rows, table.columns.map(() => '')] })}
+                  type="button"
+                  className="table-plus table-plus--row"
+                  title="Add row"
+                  aria-label="Add row"
+                  onClick={addRow}
                 >
-                  + Row
+                  <Plus size={12} />
                 </button>
                 <button
-                  onClick={() =>
-                    patchTable({
-                      columns: [...table.columns, `Col ${table.columns.length + 1}`],
-                      rows: table.rows.map((row) => [...row, '']),
-                    })
-                  }
+                  type="button"
+                  className="table-plus table-plus--col"
+                  title="Add column"
+                  aria-label="Add column"
+                  onClick={addColumn}
                 >
-                  + Column
+                  <Plus size={12} />
                 </button>
               </div>
-            </div>
+            </>
           );
         })()}
       </div>

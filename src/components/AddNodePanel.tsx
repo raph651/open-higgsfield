@@ -117,7 +117,7 @@ export function AddNodePanel({ onAdd, onUpload, onAssets, onSoon }: AddNodePanel
             icon={<PanelTop size={16} />}
             color="#3fa37f"
             badge="New"
-            onClick={() => onSoon('Pages are coming next')}
+            onClick={() => onAdd('page')}
           />
         )}
 

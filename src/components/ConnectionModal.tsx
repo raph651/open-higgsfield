@@ -60,7 +60,7 @@ export function ConnectionModal() {
           </button>
         </div>
         <p className="modal__lede">
-          Framegraph is the canvas. ComfyUI is the engine. Point this at a local server or a
+          OpenFrame is the canvas. ComfyUI is the engine. Point this at a local server or a
           Comfy Cloud endpoint. Runs go through the Comfy API, never a private vendor endpoint.
         </p>
 

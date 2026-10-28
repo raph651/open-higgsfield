@@ -29,6 +29,7 @@ export function Inspector() {
   const clearOutputs = useCanvasStore((state) => state.clearOutputs);
   const resetWorkspace = useCanvasStore((state) => state.resetWorkspace);
   const showToast = useCanvasStore((state) => state.showToast);
+  const openPage = useCanvasStore((state) => state.openPage);
   const useComfy = useSettingsStore((state) => state.useComfy);
   const connection = useSettingsStore((state) => state.connection);
   const videoDraft = useSettingsStore((state) => state.videoDraft);
@@ -288,7 +289,7 @@ export function Inspector() {
                     <a
                       className="button button--ghost button--small"
                       href={node.data.outputUrl}
-                      download={`framegraph-${node.id}.svg`}
+                      download={`openframe-${node.id}.svg`}
                     >
                       <Download size={13} /> Download
                     </a>
@@ -362,7 +363,7 @@ export function Inspector() {
                 <a
                   className="button button--lime button--full"
                   href={connectedOutput}
-                  download={`framegraph-delivery-${node.id}.svg`}
+                  download={`openframe-delivery-${node.id}.svg`}
                 >
                   <Download size={14} /> Download output
                 </a>
@@ -391,6 +392,18 @@ export function Inspector() {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {node.data.kind === 'page' && (
+          <div className="inspector__section">
+            <span className="section-label">Page</span>
+            <p className="microcopy">
+              This node opens a nested canvas. Everything you add inside stays scoped to this page.
+            </p>
+            <button className="button button--lime button--full" onClick={() => openPage(node.id)}>
+              Open page
+            </button>
           </div>
         )}
 

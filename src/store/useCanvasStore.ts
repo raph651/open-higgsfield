@@ -10,6 +10,7 @@ import {
 import { create } from 'zustand';
 import { MODELS, MODEL_BY_ID, NODE_META, TEMPLATES, makeEdge } from '../data';
 import { getRuntimeProvider, type Provider } from '../lib/providers';
+import { mentionHandle } from '../lib/mentions';
 import { useSettingsStore } from './useSettingsStore';
 import type {
   CanvasDoc,
@@ -62,8 +63,11 @@ interface WorkspaceState {
   deleteVersion: (id: string) => void;
   duplicateCanvas: (id: string) => void;
   openCanvas: (id: string) => void;
+  openPage: (nodeId: string) => void;
+  goPageBack: () => void;
   goDashboard: () => void;
   deleteCanvas: (id: string) => void;
+  cleanupCanvases: () => void;
   renameCanvas: (title: string) => void;
   setTab: (tab: Tab) => void;
   setSelected: (id: string | null) => void;
@@ -74,6 +78,7 @@ interface WorkspaceState {
   applyRemoteDoc: (doc: CanvasDoc) => void;
   addComment: (x: number, y: number, text: string) => void;
   addStroke: (stroke: CanvasStroke) => void;
+  removeStroke: (id: string) => void;
   clearStrokes: () => void;
   addReaction: (x: number, y: number, emoji: string) => void;
   removeReaction: (id: string) => void;
@@ -81,8 +86,8 @@ interface WorkspaceState {
   deleteComment: (id: string) => void;
   setSelectedIds: (ids: string[]) => void;
   snapshotHistory: (key?: string) => void;
-  undo: () => void;
-  redo: () => void;
+  undo: (keepSelection?: boolean) => void;
+  redo: (keepSelection?: boolean) => void;
   copySelection: () => void;
   pasteClipboard: () => void;
   setShowPromo: (show: boolean) => void;
@@ -96,12 +101,17 @@ interface WorkspaceState {
   groupSelection: () => void;
   ungroupSelection: () => void;
   updateNodeData: (id: string, patch: Partial<CanvasNodeData>) => void;
+  reconcilePrompts: () => void;
   run: (target: 'all' | 'selected') => Promise<void>;
   cancelRun: () => void;
   clearOutputs: () => void;
   saveNow: () => void;
   showToast: (message: string) => void;
   resetWorkspace: () => void;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function uid(): string {
@@ -164,14 +174,13 @@ function loadPersisted(): Partial<Persisted> | null {
 
 const persisted = loadPersisted();
 const seed = initialTemplateDoc();
-const second: CanvasDoc = {
-  id: 'demo-motion',
-  title: 'Motion / light ribbon',
-  updatedAt: Date.now() - 1000 * 60 * 60 * 4,
-  ...TEMPLATES[1].build(),
-};
-const initialDocs = persisted?.docs ?? { [seed.id]: seed, [second.id]: second };
-const initialOrder = persisted?.order ?? [seed.id, second.id];
+const initialDocs = persisted?.docs ?? { [seed.id]: seed };
+if (persisted?.docs) {
+  for (const doc of Object.values(initialDocs)) {
+    if (doc.title === 'Objects Swap') doc.title = 'FrameJutsu';
+  }
+}
+const initialOrder = persisted?.order ?? [seed.id];
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let runToken = 0;
@@ -297,6 +306,30 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
   dragging: false,
 
   createCanvas: (templateId) => {
+    if (templateId === 'objects-swap' || templateId === 'marketing-studio' || templateId === 'recreate') {
+      const current = get();
+      const existing = Object.values(current.docs).find(
+        (doc) =>
+          !doc.pageParentId &&
+          (doc.templateId === templateId ||
+            (templateId === 'objects-swap' &&
+              (doc.title === 'FrameJutsu' || doc.title === 'Objects Swap')) ||
+            (templateId === 'marketing-studio' && doc.title === 'Marketing Studio') ||
+            (templateId === 'recreate' && doc.title === 'Recreate')),
+      );
+      if (existing) {
+        set({
+          activeId: existing.id,
+          view: 'editor',
+          selectedId: null,
+          selectedIds: [],
+          detailNodeId: null,
+          historyPast: [],
+          historyFuture: [],
+        });
+        return;
+      }
+    }
     const staticTemplate = TEMPLATES.find((item) => item.id === templateId);
     const customTemplate = get().templates.find((item) => item.id === templateId);
     let built = staticTemplate ? staticTemplate.build() : { nodes: [], edges: [] };
@@ -339,6 +372,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       id,
       title,
       updatedAt: Date.now(),
+      templateId: staticTemplate?.id ?? customTemplate?.id,
       ...built,
     };
     set((state) => ({
@@ -523,12 +557,112 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
     get().showToast('Canvas duplicated');
   },
 
-  openCanvas: (id) => {
+  openPage: (nodeId) => {
+    const state = get();
+    const parent = activeDoc(state);
+    if (!parent) return;
+    const node = parent.nodes.find((item) => item.id === nodeId);
+    if (!node || node.data.kind !== 'page') return;
+    let pageId = node.data.pageId;
+    const nextDocs = { ...state.docs };
+    if (pageId && !nextDocs[pageId]) {
+      nextDocs[pageId] = {
+        id: pageId,
+        title: node.data.title || 'Page',
+        updatedAt: Date.now(),
+        nodes: [],
+        edges: [],
+        pageParentId: parent.id,
+      };
+    } else if (!pageId) {
+      pageId = uid();
+      nextDocs[pageId] = {
+        id: pageId,
+        title: node.data.title || 'Page',
+        updatedAt: Date.now(),
+        nodes: [],
+        edges: [],
+        pageParentId: parent.id,
+      };
+      nextDocs[parent.id] = {
+        ...parent,
+        nodes: parent.nodes.map((item) =>
+          item.id === nodeId ? { ...item, data: { ...item.data, pageId } } : item,
+        ),
+      };
+    }
+    set({
+      docs: nextDocs,
+      order: nextDocs[pageId] ? [pageId, ...state.order.filter((id) => id !== pageId)] : state.order,
+      activeId: pageId,
+      view: 'editor',
+      selectedId: null,
+      selectedIds: [],
+      detailNodeId: null,
+      historyPast: [],
+      historyFuture: [],
+      savedAt: Date.now(),
+    });
+  },
+  goPageBack: () => {
+    const doc = activeDoc(get());
+    if (!doc?.pageParentId) return;
+    set({
+      activeId: doc.pageParentId,
+      selectedId: null,
+      selectedIds: [],
+      detailNodeId: null,
+      historyPast: [],
+      historyFuture: [],
+      savedAt: Date.now(),
+    });
+  },
+    openCanvas: (id) => {
     if (!get().docs[id]) return;
     set({ view: 'editor', activeId: id, selectedId: null, selectedIds: [], historyPast: [], historyFuture: [] });
   },
 
   goDashboard: () => set({ view: 'dashboard', selectedId: null }),
+
+  cleanupCanvases: () => {
+    const state = get();
+    const seenTitles = new Set<string>();
+    const kept: string[] = [];
+    let removed = 0;
+    for (const id of state.order) {
+      const doc = state.docs[id];
+      if (!doc) continue;
+      if (doc.pageParentId) {
+        kept.push(id);
+        continue;
+      }
+      const title = doc.title.trim().toLowerCase();
+      const empty = doc.nodes.length === 0;
+      if (empty || (title && seenTitles.has(title))) {
+        removed += 1;
+        continue;
+      }
+      if (title) seenTitles.add(title);
+      kept.push(id);
+    }
+    if (removed === 0) {
+      state.showToast('No empty or duplicate canvases to clean up');
+      return;
+    }
+    const docs: Record<string, CanvasDoc> = {};
+    for (const id of kept) docs[id] = state.docs[id];
+    const activeId = state.activeId && kept.includes(state.activeId) ? state.activeId : kept[0] ?? null;
+    set({
+      docs,
+      order: kept,
+      activeId,
+      selectedId: null,
+      selectedIds: [],
+      detailNodeId: null,
+      savedAt: Date.now(),
+    });
+    state.showToast(`${removed} empty or duplicate canvas${removed === 1 ? '' : 's'} removed`);
+  },
 
   deleteCanvas: (id) => {
     set((state) => {
@@ -559,6 +693,16 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       withActiveDoc(state, (doc) => ({
         ...doc,
         strokes: [...(doc.strokes ?? []), stroke],
+        updatedAt: Date.now(),
+      })),
+    );
+  },
+  removeStroke: (id) => {
+    get().snapshotHistory('erase-draw');
+    set((state) =>
+      withActiveDoc(state, (doc) => ({
+        ...doc,
+        strokes: (doc.strokes ?? []).filter((stroke) => stroke.id !== id),
         updatedAt: Date.now(),
       })),
     );
@@ -687,7 +831,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
     }));
   },
 
-  undo: () => {
+  undo: (keepSelection = false) => {
     const state = get();
     const doc = activeDoc(state);
     const previous = state.historyPast[state.historyPast.length - 1];
@@ -696,13 +840,14 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       docs: { ...state.docs, [doc.id]: { ...cloneDoc(previous), updatedAt: Date.now() } },
       historyPast: state.historyPast.slice(0, -1),
       historyFuture: [cloneDoc(doc), ...state.historyFuture].slice(0, 30),
-      selectedId: null,
-      selectedIds: [],
+      selectedId: keepSelection ? state.selectedId : null,
+      selectedIds: keepSelection ? state.selectedIds : [],
+      detailNodeId: keepSelection ? state.detailNodeId : null,
       savedAt: Date.now(),
     });
   },
 
-  redo: () => {
+  redo: (keepSelection = false) => {
     const state = get();
     const doc = activeDoc(state);
     const next = state.historyFuture[0];
@@ -711,8 +856,9 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       docs: { ...state.docs, [doc.id]: { ...cloneDoc(next), updatedAt: Date.now() } },
       historyPast: [...state.historyPast, cloneDoc(doc)].slice(-30),
       historyFuture: state.historyFuture.slice(1),
-      selectedId: null,
-      selectedIds: [],
+      selectedId: keepSelection ? state.selectedId : null,
+      selectedIds: keepSelection ? state.selectedIds : [],
+      detailNodeId: keepSelection ? state.detailNodeId : null,
       savedAt: Date.now(),
     });
   },
@@ -884,6 +1030,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
     if (kind === 'reference') data.label = dataPatch?.label ?? 'ANCHOR / 01';
     if (kind === 'note') data.note = dataPatch?.note ?? '';
     if (kind === 'shape') data.shape = dataPatch?.shape ?? 'rect';
+    if (kind === 'page') data.title = data.title ?? 'Page';
     if (kind === 'table' && !data.table) {
       data.table = {
         columns: ['Beat', 'Shot', 'Note'],
@@ -1070,20 +1217,85 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
   },
 
   updateNodeData: (id, patch) => {
-    get().snapshotHistory(`data:${id}:${Object.keys(patch).join(',')}`);
+    get().snapshotHistory(
+      patch.prompt !== undefined ? undefined : `data:${id}:${Object.keys(patch).join(',')}`,
+    );
     set((state) =>
-      withActiveDoc(state, (doc) => ({
-        ...doc,
-        nodes: doc.nodes.map((node) => {
-          if (node.id !== id) return node;
-          const next = { ...node.data, ...patch };
-          if (node.data.kind === 'model') next.touched = true;
-          if (patch.model && MODEL_BY_ID[patch.model as ModelId]) {
-            next.cost = MODEL_BY_ID[patch.model as ModelId].cost;
-          }
-          return { ...node, data: next };
-        }),
-      })),
+      withActiveDoc(state, (doc) => {
+        const current = doc.nodes.find((node) => node.id === id);
+        const rename =
+          current?.data.kind === 'reference' && patch.label !== undefined
+            ? {
+                from: mentionHandle(current.data.label ?? current.data.title ?? ''),
+                to: mentionHandle(patch.label),
+              }
+            : null;
+        return {
+          ...doc,
+          nodes: doc.nodes.map((node) => {
+            if (node.id === id) {
+              const next = { ...node.data, ...patch };
+              if (node.data.kind === 'reference' && patch.label !== undefined) {
+                const previous = mentionHandle(node.data.label ?? node.data.title ?? '');
+                next.mentionAliases = [...new Set([...(node.data.mentionAliases ?? []), previous])];
+              }
+              if (node.data.kind === 'model') next.touched = true;
+              if (patch.model && MODEL_BY_ID[patch.model as ModelId]) {
+                next.cost = MODEL_BY_ID[patch.model as ModelId].cost;
+              }
+              return { ...node, data: next };
+            }
+            if (rename && rename.from !== rename.to && node.data.kind === 'model' && node.data.prompt) {
+              const aliases = [...new Set([...(current?.data.mentionAliases ?? []), rename.from])];
+              let prompt = node.data.prompt;
+              for (const alias of aliases) {
+                if (!alias || alias === rename.to) continue;
+                prompt = prompt.replace(new RegExp(`@${escapeRegExp(alias)}(?![\\w-])`, 'gi'), `@${rename.to}`);
+              }
+              if (prompt !== node.data.prompt) {
+                return { ...node, data: { ...node.data, prompt } };
+              }
+            }
+            return node;
+          }),
+        };
+      }),
+    );
+  },
+
+  reconcilePrompts: () => {
+    const state = get();
+    const doc = activeDoc(state);
+    if (!doc) return;
+    const assetNames = new Map(
+      state.assets.map((asset) => [asset.url, asset.name.replace(/\.[^.]+$/, '')]),
+    );
+    const replacements = new Map<string, string>();
+    for (const node of doc.nodes) {
+      if (node.data.kind !== 'reference') continue;
+      const current = mentionHandle(node.data.label ?? node.data.title ?? '');
+      const aliases = new Set<string>(node.data.mentionAliases ?? []);
+      const assetName = node.data.previewUrl ? assetNames.get(node.data.previewUrl) : undefined;
+      if (assetName && !/^(image|video|thumbnail|asset)$/i.test(assetName)) aliases.add(mentionHandle(assetName));
+      for (const alias of aliases) {
+        if (alias && alias !== current) replacements.set(alias, current);
+      }
+    }
+    if (!replacements.size) return;
+    let changed = false;
+    const nodes = doc.nodes.map((node) => {
+      if (node.data.kind !== 'model' || !node.data.prompt) return node;
+      let prompt = node.data.prompt;
+      for (const [alias, current] of replacements) {
+        prompt = prompt.replace(new RegExp(`@${escapeRegExp(alias)}(?![\\w-])`, 'gi'), `@${current}`);
+      }
+      if (prompt === node.data.prompt) return node;
+      changed = true;
+      return { ...node, data: { ...node.data, prompt } };
+    });
+    if (!changed) return;
+    set((currentState) =>
+      withActiveDoc(currentState, (active) => ({ ...active, nodes })),
     );
   },
 

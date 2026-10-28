@@ -19,6 +19,9 @@ const SIZES: Record<Aspect, WorkflowSize> = {
   '4:5': { width: 512, height: 640 },
   '16:9': { width: 768, height: 432 },
   '9:16': { width: 432, height: 768 },
+  '21:9': { width: 896, height: 384 },
+  '4:3': { width: 640, height: 480 },
+  '3:4': { width: 480, height: 640 },
 };
 
 export function sizeForAspect(aspect: Aspect | undefined): WorkflowSize {
@@ -68,7 +71,7 @@ export function sdTurboWorkflow(params: ComfyWorkflowParams): Record<string, unk
     },
     '7': {
       class_type: 'SaveImage',
-      inputs: { images: ['6', 0], filename_prefix: 'framegraph' },
+      inputs: { images: ['6', 0], filename_prefix: 'openframe' },
     },
   };
 }
@@ -96,6 +99,9 @@ const LTX_SIZES: Record<Aspect, WorkflowSize> = {
   '4:5': { width: 512, height: 640 },
   '16:9': { width: 768, height: 448 },
   '9:16': { width: 448, height: 768 },
+  '21:9': { width: 832, height: 352 },
+  '4:3': { width: 640, height: 480 },
+  '3:4': { width: 480, height: 640 },
 };
 
 export function sizeForLtx(aspect: Aspect | undefined): WorkflowSize {
@@ -187,7 +193,7 @@ export function ltxVideoWorkflow(params: LtxVideoParams): Record<string, unknown
       class_type: 'SaveVideo',
       inputs: {
         video: ['78', 0],
-        filename_prefix: 'framegraph/ltx',
+        filename_prefix: 'openframe/ltx',
         format: 'auto',
         codec: 'auto',
       },
@@ -291,7 +297,7 @@ export function ltxImageToVideoWorkflow(params: LtxImageParams): Record<string, 
       class_type: 'SaveVideo',
       inputs: {
         video: ['78', 0],
-        filename_prefix: 'framegraph/ltx-i2v',
+        filename_prefix: 'openframe/ltx-i2v',
         format: 'auto',
         codec: 'auto',
       },
@@ -352,7 +358,7 @@ export function sdTurboImg2ImgWorkflow(params: SdImg2ImgParams): Record<string, 
     },
     '8': {
       class_type: 'SaveImage',
-      inputs: { images: ['7', 0], filename_prefix: 'framegraph/img2img' },
+      inputs: { images: ['7', 0], filename_prefix: 'openframe/img2img' },
     },
   };
 }

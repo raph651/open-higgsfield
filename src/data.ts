@@ -85,11 +85,12 @@ export const NODE_META: Record<
   group: { label: 'Group', hint: 'Frame a cluster', color: '#8bd3ff', short: 'GRP' },
   shape: { label: 'Shape', hint: 'Mark up the board', color: '#a78bfa', short: 'SHP' },
   table: { label: 'Table', hint: 'Plan the shot list', color: '#c4b5fd', short: 'TBL' },
+  page: { label: 'Page', hint: 'Open a nested canvas', color: '#7ee0b8', short: 'PAGE' },
 };
 
 export const NAV_ITEMS = ['Studio', 'Templates', 'Models', 'Community', 'Docs'];
 
-export const ASPECTS = ['1:1', '4:5', '16:9', '9:16'] as const;
+export const ASPECTS = ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'] as const;
 
 const EDGE_COLOR = 'rgba(167, 139, 250, 0.72)';
 
@@ -130,6 +131,7 @@ function node(
         ],
       },
     },
+    page: { title: 'Page' },
   };
 
   return {
@@ -243,6 +245,137 @@ function buildCharacterLoop() {
   };
 }
 
+
+function buildObjectsSwap() {
+  const p = Math.random().toString(36).slice(2, 7);
+  const actor = node(`${p}-actor`, 'reference', 20, 80, {
+    title: 'Actor',
+    label: 'ACTOR',
+    previewUrl: '/templates/objects-swap/actor.webp',
+    mediaKind: 'image',
+  });
+  const car = node(`${p}-car`, 'reference', 20, 360, {
+    title: 'Car',
+    label: 'CAR',
+    previewUrl: '/templates/objects-swap/car.webp',
+    mediaKind: 'image',
+  });
+  const source = node(`${p}-source`, 'reference', 20, 640, {
+    title: 'Source motion',
+    label: 'SOURCE',
+    previewUrl: '/templates/objects-swap/source.mp4',
+    mediaKind: 'video',
+  });
+  const swap = node(`${p}-swap`, 'model', 420, 260, {
+    title: 'Seedance 2.0',
+    model: 'seedance-2.0',
+    prompt:
+      'Swap the actor with @Actor and the car with @Car in @Source.',
+    resolution: '720p',
+    aspect: '16:9',
+    duration: 15,
+    cost: 12,
+    outputUrl: '/templates/objects-swap/generation.mp4',
+    outputKind: 'video',
+    status: 'done',
+  });
+  const out = node(`${p}-out`, 'output', 860, 360, { title: 'FrameJutsu' });
+  return {
+    nodes: [actor, car, source, swap, out],
+    edges: [
+      makeEdge(actor.id, swap.id),
+      makeEdge(car.id, swap.id),
+      makeEdge(source.id, swap.id),
+      makeEdge(swap.id, out.id),
+    ],
+  };
+}
+
+
+function buildMarketingStudio() {
+  const p = Math.random().toString(36).slice(2, 7);
+  const reference = node(`${p}-reference`, 'reference', 20, 80, {
+    title: 'Scene reference',
+    label: 'REFERENCE',
+    previewUrl: '/templates/marketing-studio/reference.jpg',
+    mediaKind: 'image',
+  });
+  const product = node(`${p}-product`, 'reference', 20, 360, {
+    title: 'Product',
+    label: 'PRODUCT',
+    previewUrl: '/templates/marketing-studio/product.jpg',
+    mediaKind: 'image',
+  });
+  const avatar = node(`${p}-avatar`, 'reference', 20, 640, {
+    title: 'Avatar',
+    label: 'AVATAR',
+    previewUrl: '/templates/marketing-studio/avatar.jpg',
+    mediaKind: 'image',
+  });
+  const image = node(`${p}-image`, 'model', 420, 260, {
+    title: 'Nano Banana Pro',
+    model: 'nano-banana-pro',
+    prompt:
+      'Place @Product and @Avatar into the scene from @Reference. Keep the original lighting, camera and materials consistent.',
+    resolution: '2k',
+    aspect: '1:1',
+    cost: 6,
+  });
+  const out = node(`${p}-out`, 'output', 860, 360, { title: 'Marketing Studio' });
+  return {
+    nodes: [reference, product, avatar, image, out],
+    edges: [
+      makeEdge(reference.id, image.id),
+      makeEdge(product.id, image.id),
+      makeEdge(avatar.id, image.id),
+      makeEdge(image.id, out.id),
+    ],
+  };
+}
+
+
+function buildRecreate() {
+  const p = Math.random().toString(36).slice(2, 7);
+  const source = node(`${p}-source`, 'reference', 20, 80, {
+    title: 'Source clip',
+    label: 'SOURCE',
+    previewUrl: '/templates/recreate/source.mp4',
+    mediaKind: 'video',
+  });
+  const product = node(`${p}-product`, 'reference', 20, 360, {
+    title: 'Product',
+    label: 'PRODUCT',
+    previewUrl: '/templates/recreate/product.webp',
+    mediaKind: 'image',
+  });
+  const avatar = node(`${p}-avatar`, 'reference', 20, 640, {
+    title: 'Avatar',
+    label: 'AVATAR',
+    previewUrl: '/templates/recreate/avatar.webp',
+    mediaKind: 'image',
+  });
+  const video = node(`${p}-video`, 'model', 420, 260, {
+    title: 'Seedance 2.0',
+    model: 'seedance-2.0',
+    prompt:
+      'Replace the product with @Product and the avatar with @Avatar. Keep the source motion, camera and environment.',
+    resolution: '720p',
+    aspect: '9:16',
+    duration: 12,
+    cost: 12,
+  });
+  const out = node(`${p}-out`, 'output', 860, 360, { title: 'Recreate' });
+  return {
+    nodes: [source, product, avatar, video, out],
+    edges: [
+      makeEdge(source.id, video.id),
+      makeEdge(product.id, video.id),
+      makeEdge(avatar.id, video.id),
+      makeEdge(video.id, out.id),
+    ],
+  };
+}
+
 export const TEMPLATES: TemplateDef[] = [
   {
     id: 'product-film',
@@ -273,5 +406,43 @@ export const TEMPLATES: TemplateDef[] = [
     previewSeed: 'mira doorway sodium',
     nodeCount: 5,
     build: buildCharacterLoop,
+  },
+  {
+    id: 'objects-swap',
+    name: 'FrameJutsu',
+    description: 'Swap an actor and a car into the motion of a source clip with Seedance 2.0.',
+    tag: 'References',
+    accent: '#ff9bb5',
+    previewSeed: 'objects swap actor car',
+    previewUrl: '/templates/objects-swap/preview.mp4',
+    previewKind: 'video',
+    previewPoster: '/templates/objects-swap/preview.jpg',
+    nodeCount: 5,
+    build: buildObjectsSwap,
+  },
+  {
+    id: 'marketing-studio',
+    name: 'Marketing Studio',
+    description: 'Compose a product and a talent into a reference scene with a free prompt.',
+    tag: 'Marketing',
+    accent: '#8bd3ff',
+    previewSeed: 'marketing studio product talent',
+    previewUrl: '/templates/marketing-studio/reference.jpg',
+    previewKind: 'image',
+    nodeCount: 5,
+    build: buildMarketingStudio,
+  },
+  {
+    id: 'recreate',
+    name: 'Recreate',
+    description: 'Replace the avatar and product in a source clip with a custom prompt.',
+    tag: 'Video',
+    accent: '#ff8aa5',
+    previewSeed: 'recreate source clip avatar product',
+    previewUrl: '/templates/recreate/preview.mp4',
+    previewKind: 'video',
+    previewPoster: '/templates/recreate/poster.jpg',
+    nodeCount: 5,
+    build: buildRecreate,
   },
 ];

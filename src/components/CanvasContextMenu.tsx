@@ -5,6 +5,7 @@ import {
   Download,
   Image as ImageIcon,
   ImagePlus,
+  PanelTop,
   StickyNote,
   Table2,
   Type,
@@ -17,7 +18,8 @@ export type ContextCreateId =
   | 'reference'
   | 'output'
   | 'sticky'
-  | 'table';
+  | 'table'
+  | 'page';
 
 const GROUPS: Array<{
   label: string;
@@ -43,6 +45,7 @@ const GROUPS: Array<{
     items: [
       { id: 'sticky', label: 'Sticky note', hint: 'Annotate the board', icon: StickyNote },
       { id: 'table', label: 'Table', hint: 'Shot list or beats', icon: Table2 },
+      { id: 'page', label: 'Page', hint: 'A nested canvas', icon: PanelTop },
     ],
   },
 ];

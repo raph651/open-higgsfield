@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
   Clock3,
@@ -9,9 +9,7 @@ import {
   Settings2,
   Sparkles,
   Trash2,
-  Volume2,
   X,
-  VolumeX,
   Wand2,
 } from 'lucide-react';
 import { ASPECTS, MODELS, MODEL_BY_ID } from '../data';
@@ -20,7 +18,10 @@ import { fileToNodeMedia } from '../lib/media';
 import { VideoStill } from './VideoStill';
 import { ModelPicker } from './ModelPicker';
 import { MentionMenu } from './MentionMenu';
-import { buildMentionGroups, type MentionItem } from '../lib/mentions';
+import { PromptMirror, syncMirrorScroll, syncPromptMirror } from './PromptMirror';
+import { ToolPicker } from './ToolPicker';
+import { announcePopover, subscribePopoverOpen } from '../lib/popoverBus';
+import { buildMentionGroups, buildMentionLookup, mentionHandle, PROMPT_PLACEHOLDER, type MentionItem } from '../lib/mentions';
 import { GenerationTypePicker, type GenerationFamily } from './GenerationTypePicker';
 
 export function GenerationPanel() {
@@ -37,10 +38,18 @@ export function GenerationPanel() {
   const addAsset = useCanvasStore((state) => state.addAsset);
   const assets = useCanvasStore((state) => state.assets);
   const setSelected = useCanvasStore((state) => state.setSelected);
+  const reconcilePrompts = useCanvasStore((state) => state.reconcilePrompts);
+  const undo = useCanvasStore((state) => state.undo);
+  const redo = useCanvasStore((state) => state.redo);
   const fileRef = useRef<HTMLInputElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
+  const pendingCaretRef = useRef<number | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [mention, setMention] = useState<{ query: string; start: number; end: number } | null>(null);
+  const [batchOpen, setBatchOpen] = useState(false);
+  const batchSource = 'panel-batch';
+  const [durationOpen, setDurationOpen] = useState(false);
+  const durationSource = 'panel-duration';
 
   const node = doc?.nodes.find((item) => item.id === selectedId);
   if (!doc || !node || node.data.kind !== 'model') return null;
@@ -48,12 +57,68 @@ export function GenerationPanel() {
   const PROMPT_MAX_HEIGHT = 236;
 
   useEffect(() => {
+    reconcilePrompts();
+  }, [node.id, reconcilePrompts]);
+
+  useEffect(() => subscribePopoverOpen(batchSource, () => setBatchOpen(false)), []);
+  useLayoutEffect(() => {
+    const pending = pendingCaretRef.current;
+    if (pending === null) return;
     const field = promptRef.current;
     if (!field) return;
+    pendingCaretRef.current = null;
+    field.focus();
+    field.setSelectionRange(pending, pending);
+    syncMirrorScroll(field);
+  }, [node.data.prompt]);
+
+  useEffect(() => subscribePopoverOpen(durationSource, () => setDurationOpen(false)), []);
+
+  useEffect(() => {
+    if (!durationOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('.gen-duration')) return;
+      setDurationOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDurationOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [durationOpen]);
+
+  useEffect(() => {
+    if (!batchOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('.gen-number')) return;
+      setBatchOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setBatchOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [batchOpen]);
+
+  useLayoutEffect(() => {
+    const field = promptRef.current;
+    if (!field) return;
+    const atEnd = field.selectionEnd === field.value.length;
+    const scrollTop = field.scrollTop;
     field.style.height = 'auto';
     const next = Math.min(field.scrollHeight, PROMPT_MAX_HEIGHT);
     field.style.height = `${next}px`;
     field.style.overflowY = field.scrollHeight > PROMPT_MAX_HEIGHT ? 'auto' : 'hidden';
+    field.scrollTop = atEnd ? field.scrollHeight : scrollTop;
+    syncMirrorScroll(field);
   }, [node.data.prompt]);
 
   const model = (node.data.model ? MODEL_BY_ID[node.data.model] : null) ?? MODELS[0];
@@ -120,7 +185,9 @@ export function GenerationPanel() {
     if (!mention) return;
     const value = promptRef.current?.value ?? node.data.prompt ?? '';
     let sourceId = item.nodeId;
+    let tokenLabel = item.label;
     if (item.assetId) {
+      tokenLabel = item.label.slice(0, 22).toUpperCase();
       const x = Math.max(40, node.position.x - 340);
       let y = node.position.y;
       for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -138,7 +205,7 @@ export function GenerationPanel() {
           previewUrl: item.url,
           mediaKind: item.kind === 'video' ? 'video' : 'image',
           title: item.kind === 'video' ? 'Video' : 'Image',
-          label: item.label.slice(0, 22).toUpperCase(),
+          label: tokenLabel,
         },
         false,
       );
@@ -146,19 +213,13 @@ export function GenerationPanel() {
     if (sourceId && !item.linked) {
       onConnect({ source: sourceId, target: node.id, sourceHandle: null, targetHandle: null });
     }
-    const handle = item.label
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'reference';
-    const token = `@${handle} `;
+    const token = `@${mentionHandle(tokenLabel)} `;
     const next = `${value.slice(0, mention.start)}${token}${value.slice(mention.end)}`;
     updateNodeData(node.id, { prompt: next });
     const caret = mention.start + token.length;
+    pendingCaretRef.current = caret;
     setMention(null);
-    window.requestAnimationFrame(() => {
-      promptRef.current?.focus();
-      promptRef.current?.setSelectionRange(caret, caret);
-    });
+    window.requestAnimationFrame(() => promptRef.current?.focus());
   };
 
   const switchGenerationFamily = (family: GenerationFamily) => {
@@ -178,6 +239,7 @@ export function GenerationPanel() {
   };
 
   const mentionGroups = mention ? buildMentionGroups(doc, node.id, assets, mention.query) : [];
+  const mentionLookup = buildMentionLookup(doc, node.id, assets);
 
   return (
     <div className="generation-panel">
@@ -218,7 +280,7 @@ export function GenerationPanel() {
                   aria-label={`Remove reference ${index + 1}`}
                   onClick={() => disconnectNodes(reference.nodeId, node.id)}
                 >
-                  <X size={10} />
+                  <X size={13} />
                 </button>
               </span>
             ))}
@@ -239,7 +301,9 @@ export function GenerationPanel() {
         </div>
 
         <div className="gen-composer">
-          <textarea
+          <div className="prompt-field prompt-field--panel">
+            <PromptMirror value={node.data.prompt ?? ''} lookup={mentionLookup} />
+            <textarea
             ref={promptRef}
             className="nowheel"
             value={node.data.prompt ?? ''}
@@ -257,14 +321,29 @@ export function GenerationPanel() {
             onClick={(event) => syncMention(event.currentTarget.value, event.currentTarget.selectionStart ?? 0)}
             onBlur={() => window.setTimeout(() => setMention(null), 140)}
             onKeyDown={(event) => {
+              event.stopPropagation();
+              const mod = event.metaKey || event.ctrlKey;
+              if (mod && event.key.toLowerCase() === 'z') {
+                event.preventDefault();
+                if (event.shiftKey) redo(true);
+                else undo(true);
+                return;
+              }
+              if (mod && event.key.toLowerCase() === 'y') {
+                event.preventDefault();
+                redo(true);
+                return;
+              }
               if (event.key === 'Escape' && mention) {
-                event.stopPropagation();
+                event.preventDefault();
                 setMention(null);
               }
             }}
-            placeholder={isVideo ? 'Describe the motion, camera and performance…' : 'Describe what you want to create…'}
+            placeholder={PROMPT_PLACEHOLDER}
             rows={4}
+            onScroll={syncPromptMirror}
           />
+          </div>
           {mention && <MentionMenu groups={mentionGroups} onSelect={chooseMention} />}
         </div>
 
@@ -295,73 +374,97 @@ export function GenerationPanel() {
             }}
           />
 
-          <label className="gen-tool" title="Resolution">
-            <select
-              value={node.data.resolution ?? (isVideo ? '720p' : '1k')}
-              aria-label="Resolution"
-              onChange={(event) => updateNodeData(node.id, { resolution: event.target.value })}
-            >
-              {resolutions.map((resolution) => (
-                <option key={resolution} value={resolution}>{resolution}</option>
-              ))}
-            </select>
-            <ChevronDown size={10} className="gen-tool__chevron" />
-          </label>
+          <ToolPicker
+            className="gen-tool gen-tool--picker"
+            label="Resolution"
+            value={node.data.resolution ?? (isVideo ? '720p' : '1k')}
+            options={resolutions}
+            onChange={(next) => updateNodeData(node.id, { resolution: next })}
+          />
 
-          <label className="gen-tool" title="Aspect ratio">
-            <select
-              value={node.data.aspect ?? '1:1'}
-              aria-label="Aspect ratio"
-              onChange={(event) => updateNodeData(node.id, { aspect: event.target.value as typeof node.data.aspect })}
-            >
-              {ASPECTS.map((aspect) => (
-                <option key={aspect} value={aspect}>{aspect}</option>
-              ))}
-            </select>
-            <ChevronDown size={10} className="gen-tool__chevron" />
-          </label>
+          <ToolPicker
+            className="gen-tool gen-tool--picker"
+            label="Aspect ratio"
+            value={node.data.aspect ?? '1:1'}
+            options={ASPECTS}
+            display="aspect"
+            onChange={(next) => updateNodeData(node.id, { aspect: next as typeof node.data.aspect })}
+          />
 
           {isVideo && (
-            <label className="gen-tool gen-tool--icon" title="Duration">
-              <Clock3 size={11} />
-              <select
-                value={node.data.duration ?? 4}
-                aria-label="Duration"
-                onChange={(event) => updateNodeData(node.id, { duration: Number(event.target.value) })}
+            <div className="gen-duration">
+              <button
+                type="button"
+                className={durationOpen ? 'gen-duration__trigger is-open' : 'gen-duration__trigger'}
+                title={`Duration: ${node.data.duration ?? 4}s`}
+                aria-label={`Duration: ${node.data.duration ?? 4}s`}
+                aria-expanded={durationOpen}
+                onClick={() => {
+                  if (!durationOpen) announcePopover(durationSource);
+                  setDurationOpen((value) => !value);
+                }}
               >
-                {Array.from({ length: 14 }, (_, index) => index + 2).map((seconds) => (
-                  <option key={seconds} value={seconds}>{seconds}s</option>
-                ))}
-              </select>
-            </label>
+                <Clock3 size={13} />
+                <span>{node.data.duration ?? 4}s</span>
+              </button>
+              {durationOpen && (
+                <div className="gen-duration__menu">
+                  <div className="gen-duration__head">
+                    <span>Duration</span>
+                    <strong>{node.data.duration ?? 4}s</strong>
+                  </div>
+                  <input
+                    type="range"
+                    min={2}
+                    max={15}
+                    step={1}
+                    value={node.data.duration ?? 4}
+                    aria-label="Clip duration in seconds"
+                    onChange={(event) => updateNodeData(node.id, { duration: Number(event.target.value) })}
+                  />
+                  <div className="gen-duration__ticks"><span>2s</span><span>15s</span></div>
+                </div>
+              )}
+            </div>
           )}
 
-          <label className="gen-tool gen-tool--icon" title="Batch size">
-            <Layers size={11} />
-            <select
-              value={node.data.batch ?? 1}
-              aria-label="Batch size"
-              onChange={(event) => updateNodeData(node.id, { batch: Number(event.target.value) })}
-            >
-              {[1, 2, 3, 4].map((count) => (
-                <option key={count} value={count}>{count}/4</option>
-              ))}
-            </select>
-          </label>
-
-          {isVideo && (
+          <div className="gen-number">
             <button
               type="button"
-              className={node.data.generateAudio ? 'gen-tool gen-tool--audio is-on' : 'gen-tool gen-tool--audio'}
-              role="switch"
-              aria-checked={node.data.generateAudio ?? false}
-              aria-label="Generate audio"
-              title="Generate audio"
-              onClick={() => updateNodeData(node.id, { generateAudio: !(node.data.generateAudio ?? false) })}
+              className={batchOpen ? 'gen-number__trigger is-open' : 'gen-number__trigger'}
+              title="Number of Generations"
+              aria-label={`Number of Generations: ${node.data.batch ?? 1}`}
+              aria-expanded={batchOpen}
+              onClick={() => {
+                if (!batchOpen) announcePopover(batchSource);
+                setBatchOpen((value) => !value);
+              }}
             >
-              {node.data.generateAudio ? <Volume2 size={13} /> : <VolumeX size={13} />}
+              <Layers size={11} />
+              <span>{node.data.batch ?? 1}</span>
             </button>
-          )}
+            {batchOpen && (
+              <div className="gen-number__menu">
+                <span className="gen-number__title">Number of Generations</span>
+                <div className="gen-number__cells" role="radiogroup" aria-label="Number of Generations">
+                  {[1, 2, 3, 4].map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      role="radio"
+                      aria-checked={(node.data.batch ?? 1) === count}
+                      aria-label={`${count} generation${count === 1 ? '' : 's'}`}
+                      className={(node.data.batch ?? 1) === count ? 'is-active' : ''}
+                      onClick={() => updateNodeData(node.id, { batch: count })}
+                    >
+                      {count}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
 
         <button className="gen-advanced" onClick={() => setAdvancedOpen((value) => !value)}>
@@ -422,7 +525,7 @@ export function GenerationPanel() {
             )}
             <div className="gen-output__bar">
               <span>{model.runtime === 'api' ? 'API output' : 'ComfyUI output'}</span>
-              <a href={node.data.outputUrl} download={`framegraph-${node.id}.${node.data.outputKind === 'video' ? 'mp4' : 'png'}`}>
+              <a href={node.data.outputUrl} download={`openframe-${node.id}.${node.data.outputKind === 'video' ? 'mp4' : 'png'}`}>
                 Download
               </a>
             </div>

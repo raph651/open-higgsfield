@@ -143,7 +143,7 @@ export function HeroGraph({ onOpen }: HeroGraphProps) {
           preventScrolling={false}
           proOptions={{ hideAttribution: true }}
         >
-          <Background gap={22} size={1.2} color="rgba(255,255,255,0.13)" />
+          <Background gap={22} size={1.2} color="var(--grid-dot)" />
         </ReactFlow>
       </div>
       <div className="hero-graph__footer">

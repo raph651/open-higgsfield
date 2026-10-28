@@ -1,6 +1,6 @@
-# How Framegraph uses ComfyUI
+# How OpenFrame uses ComfyUI
 
-Framegraph is a **custom canvas front-end over the ComfyUI API**. It is not a ComfyUI UI clone, and it does not reimplement diffusion. Every local render is a ComfyUI workflow submitted to a running ComfyUI server.
+OpenFrame is a **custom canvas front-end over the ComfyUI API**. It is not a ComfyUI UI clone, and it does not reimplement diffusion. Every local render is a ComfyUI workflow submitted to a running ComfyUI server.
 
 ## Request flow
 

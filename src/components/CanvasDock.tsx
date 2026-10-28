@@ -1,10 +1,11 @@
 import {
   Circle,
   Diamond,
+  Eraser,
   Hand,
   Heart,
-  Layers,
   MessageCircle,
+  PanelTop,
   Plus,
   Search,
   Square,
@@ -13,7 +14,7 @@ import {
 } from 'lucide-react';
 import type { ShapeKind } from '../types';
 
-export type DockTool = 'select' | 'pan' | 'draw' | 'comment' | 'reaction';
+export type DockTool = 'select' | 'pan' | 'draw' | 'erase' | 'comment' | 'reaction';
 
 interface CanvasDockProps {
   tool: DockTool;
@@ -26,7 +27,7 @@ interface CanvasDockProps {
   onTable: () => void;
   onSearch: () => void;
   onAdd: () => void;
-  onVersions: () => void;
+  onPage: () => void;
   addOpen: boolean;
 }
 
@@ -134,7 +135,7 @@ export function CanvasDock({
   onTable,
   onSearch,
   onAdd,
-  onVersions,
+  onPage,
   addOpen,
 }: CanvasDockProps) {
   return (
@@ -150,6 +151,9 @@ export function CanvasDock({
 
       <DockButton label="Draw · P" active={tool === 'draw'} onClick={() => onTool('draw')}>
         <PenIcon />
+      </DockButton>
+      <DockButton label="Eraser · E" active={tool === 'erase'} onClick={() => onTool('erase')}>
+        <Eraser size={18} strokeWidth={1.6} />
       </DockButton>
       <DockButton label="Sticky note · S" onClick={onSticky}>
         <StickyIcon />
@@ -194,8 +198,8 @@ export function CanvasDock({
       <DockButton label="Table" onClick={onTable}>
         <Table2 size={18} strokeWidth={1.6} />
       </DockButton>
-      <DockButton label="Versions" onClick={onVersions}>
-        <Layers size={18} strokeWidth={1.6} />
+      <DockButton label="Page" onClick={onPage}>
+        <PanelTop size={18} strokeWidth={1.6} />
       </DockButton>
 
       <span className="dock-divider" />

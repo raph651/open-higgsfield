@@ -1,4 +1,4 @@
-# Framegraph
+# OpenFrame
 
 **The graph is the studio.** An open-source node canvas that runs ComfyUI workflows: prompts, references and model adapters on one infinite board.
 
@@ -12,7 +12,7 @@ Built for **Comfy Org's Open Source Higgsfield challenge** — a working creativ
 
 ## Why this exists
 
-Higgsfield promised to open source its platform. It didn't. Comfy Org's challenge asks for open rebuilds of creative apps on ComfyUI. Framegraph is our answer: a canvas where each node is a ComfyUI workflow, outputs flow downstream, and anyone can run the whole thing locally.
+Higgsfield promised to open source its platform. It didn't. Comfy Org's challenge asks for open rebuilds of creative apps on ComfyUI. OpenFrame is our answer: a canvas where each node is a ComfyUI workflow, outputs flow downstream, and anyone can run the whole thing locally.
 
 No Higgsfield code, copy, artwork or private endpoints are used.
 
@@ -52,7 +52,7 @@ Start ComfyUI with CORS enabled:
 
 ComfyUI defaults to port `8188`. Open `http://127.0.0.1:8188` once to confirm it boots.
 
-### 2. Framegraph
+### 2. OpenFrame
 
 ```bash
 npm install

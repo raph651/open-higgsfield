@@ -90,7 +90,7 @@ export class ComfyClient {
     const response = await this.request('/prompt', {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ prompt: workflow, client_id: `framegraph-${crypto.randomUUID()}` }),
+      body: JSON.stringify({ prompt: workflow, client_id: `openframe-${crypto.randomUUID()}` }),
     });
     const data = await response.json();
     if (!data?.prompt_id) throw new Error('ComfyUI did not return a prompt_id');

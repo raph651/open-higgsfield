@@ -52,7 +52,7 @@ export class ComfyProvider implements Provider {
       : blob.type.includes('webp')
         ? 'webp'
         : 'png';
-    const filename = `framegraph-reference.${extension}`;
+    const filename = `openframe-reference.${extension}`;
     const file = new File([blob], filename, { type: blob.type || `image/${extension}` });
     const uploaded = await this.client.uploadImage(file, filename);
     return uploaded.subfolder ? `${uploaded.subfolder}/${uploaded.name}` : uploaded.name;

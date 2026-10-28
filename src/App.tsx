@@ -16,6 +16,16 @@ export default function App() {
   }, [accent]);
 
   useEffect(() => {
+    const remote = (import.meta.env.VITE_COMFY_BASE_URL as string | undefined)?.replace(/\/$/, '');
+    if (!import.meta.env.PROD || !remote) return;
+    const { baseUrl, setBaseUrl, useComfy, checkConnection } = useSettingsStore.getState();
+    if (!baseUrl || /localhost|127\.0\.0\.1/.test(baseUrl)) {
+      setBaseUrl(remote);
+      if (useComfy) void checkConnection();
+    }
+  }, []);
+
+  useEffect(() => {
     const roomId = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('room');
     if (roomId) useRoomStore.getState().join(roomId);
   }, []);

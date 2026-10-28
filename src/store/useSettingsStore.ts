@@ -33,7 +33,9 @@ interface SettingsState {
   checkConnection: () => Promise<boolean>;
 }
 
-const DEFAULT_BASE_URL = 'http://127.0.0.1:8188';
+const DEFAULT_BASE_URL =
+  (import.meta.env.VITE_COMFY_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
+  'http://127.0.0.1:8188';
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
