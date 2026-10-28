@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+      (function () {
+        try {
+          var saved = JSON.parse(localStorage.getItem('framegraph-theme') || 'null');
+          var theme = saved && saved.state && saved.state.theme === 'dark' ? 'dark' : 'light';
+          document.documentElement.dataset.theme = theme;
+          if (theme === 'dark') document.querySelector('meta[name="theme-color"]').setAttribute('content', '#07090c');
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
+    <title>Open Source Canvas — the graph is the studio</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
