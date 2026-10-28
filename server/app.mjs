@@ -297,7 +297,8 @@ function serveStatic(req, res) {
   const ext = path.extname(file).toLowerCase();
   res.writeHead(200, {
     'content-type': MIME[ext] || 'application/octet-stream',
-    'cache-control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+    // only Vite's content-hashed files under /assets/ are immutable; templates, the banner and other public files can change under the same name
+    'cache-control': file.includes(`${path.sep}assets${path.sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache',
   });
   createReadStream(file).pipe(res);
 }

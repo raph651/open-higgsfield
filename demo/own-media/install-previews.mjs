@@ -26,8 +26,6 @@ const pf = dir(path.join(pub, 'templates/product-film'));
 ff('-i', path.join(here, 'ltx25/product-hero.mp4'), '-t', '5', '-vf', 'fps=30,scale=960:-2', ...enc, path.join(pf, 'preview.mp4'));
 ff('-ss', '3.0', '-i', path.join(here, 'ltx25/product-hero.mp4'), '-frames:v', '1', '-vf', 'scale=960:-2', '-q:v', '3', path.join(pf, 'poster.jpg'));
 
-// Business banner ad: MiniMax H3 (lime node UI, a film frame blooms on the wall)
-ff('-i', path.join(here, 'biz/biz-h3.mp4'), '-vf', 'fps=30,scale=960:-2', ...enc, path.join(pub, 'business-ad.mp4'));
-ff('-ss', '4.2', '-i', path.join(here, 'biz/biz-h3.mp4'), '-frames:v', '1', '-vf', 'scale=960:-2', '-q:v', '3', path.join(pub, 'business-ad-poster.jpg'));
+// (the Business banner is not made here: it is the typographic collage from demo/promo/banner.html, rendered by demo/promo/render-banner.mjs)
 
 console.log('installed');
