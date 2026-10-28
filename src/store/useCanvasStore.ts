@@ -174,6 +174,12 @@ function loadPersisted(): Partial<Persisted> | null {
         }
       }
     }
+    // Boards saved while 0 was the default seed would pin every run to one cached image; make them random once.
+    const seedResetKey = 'osc.seed-random.v1';
+    if (!localStorage.getItem(seedResetKey)) {
+      for (const doc of Object.values(parsed.docs)) for (const node of doc.nodes) delete node.data.seed;
+      localStorage.setItem(seedResetKey, '1');
+    }
     return parsed;
   } catch {
     return null;
@@ -1436,7 +1442,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
         result = await provider.generate({
           model,
           prompt: prompt || current.data.title,
-          seed: current.data.seed ?? 0,
+          seed: current.data.seed,   // unset means a fresh random seed per run; a fixed seed would make ComfyUI return its cached image
           aspect: current.data.aspect,
           duration: current.data.duration,
           resolution: current.data.resolution,
@@ -1460,23 +1466,24 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       }
       if (token !== runToken) return false;
 
-      const previousHistory = current.data.outputUrl
-        ? [
-            {
-              url: current.data.outputUrl,
-              kind: current.data.outputKind ?? result.kind,
-              at: current.data.lastRun ?? Date.now(),
-            },
-            ...(current.data.outputHistory ?? []),
-          ].slice(0, 8)
-        : current.data.outputHistory ?? [];
+      // Every render stays in the strip, newest first, so restoring an older one never loses the latest.
+      const seenUrls = new Set<string>();
+      const renderHistory = [
+        { url: result.url, kind: result.kind, at: Date.now() },
+        ...(current.data.outputUrl
+          ? [{ url: current.data.outputUrl, kind: current.data.outputKind ?? result.kind, at: current.data.lastRun ?? Date.now() }]
+          : []),
+        ...(current.data.outputHistory ?? []),
+      ]
+        .filter((item) => !seenUrls.has(item.url) && seenUrls.add(item.url))
+        .slice(0, 12);
       get().updateNodeData(current.id, {
         status: 'done',
         outputUrl: result.url,
         outputKind: result.kind,
         cost: model.cost,
         lastRun: Date.now(),
-        outputHistory: previousHistory,
+        outputHistory: renderHistory,
         error: undefined,
       });
       get().addAsset({

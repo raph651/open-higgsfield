@@ -478,8 +478,11 @@ export function GenerationPanel() {
               <span>Seed</span>
               <input
                 type="number"
-                value={node.data.seed ?? 0}
-                onChange={(event) => updateNodeData(node.id, { seed: Number(event.target.value) })}
+                value={node.data.seed ?? ''}
+                placeholder="Random"
+                onChange={(event) =>
+                  updateNodeData(node.id, { seed: event.target.value === '' ? undefined : Number(event.target.value) })
+                }
               />
             </label>
 
@@ -491,27 +494,31 @@ export function GenerationPanel() {
           <div className="gen-history">
             <span className="gen-label">History</span>
             <div className="gen-history__row">
-              {history.map((item, index) => (
-                <button
-                  key={`${item.url}-${index}`}
-                  className="gen-history__item"
-                  title="Restore this render"
-                  onClick={() =>
-                    updateNodeData(node.id, {
-                      outputUrl: item.url,
-                      outputKind: item.kind,
-                      status: 'done',
-                    })
-                  }
-                >
-                  {item.kind === 'video' ? (
-                    <video src={item.url} muted loop playsInline />
-                  ) : (
-                    <img src={item.url} alt="" />
-                  )}
-                  <span>{index + 1}</span>
-                </button>
-              ))}
+              {history.map((item, index) => {
+                const showing = item.url === node.data.outputUrl;
+                return (
+                  <button
+                    key={item.url}
+                    className={`gen-history__item${showing ? ' gen-history__item--active' : ''}`}
+                    aria-pressed={showing}
+                    title={showing ? `Render ${history.length - index}, showing now` : `Show render ${history.length - index}`}
+                    onClick={() =>
+                      updateNodeData(node.id, {
+                        outputUrl: item.url,
+                        outputKind: item.kind,
+                        status: 'done',
+                      })
+                    }
+                  >
+                    {item.kind === 'video' ? (
+                      <video src={item.url} muted loop playsInline />
+                    ) : (
+                      <img src={item.url} alt="" />
+                    )}
+                    <span>{history.length - index}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

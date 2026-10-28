@@ -254,8 +254,11 @@ export function Inspector() {
                 <span>Seed</span>
                 <input
                   type="number"
-                  value={node.data.seed ?? 0}
-                  onChange={(event) => updateNodeData(node.id, { seed: Number(event.target.value) })}
+                  value={node.data.seed ?? ''}
+                  placeholder="Random"
+                  onChange={(event) =>
+                    updateNodeData(node.id, { seed: event.target.value === '' ? undefined : Number(event.target.value) })
+                  }
                 />
               </label>
             </div>
