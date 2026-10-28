@@ -1442,6 +1442,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
         result = await provider.generate({
           model,
           prompt: prompt || current.data.title,
+          strength: current.data.strength,
           seed: current.data.seed,   // unset means a fresh random seed per run; a fixed seed would make ComfyUI return its cached image
           aspect: current.data.aspect,
           duration: current.data.duration,
@@ -1469,9 +1470,9 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       // Every render stays in the strip, newest first, so restoring an older one never loses the latest.
       const seenUrls = new Set<string>();
       const renderHistory = [
-        { url: result.url, kind: result.kind, at: Date.now() },
+        { url: result.url, kind: result.kind, at: Date.now(), seed: result.seed },
         ...(current.data.outputUrl
-          ? [{ url: current.data.outputUrl, kind: current.data.outputKind ?? result.kind, at: current.data.lastRun ?? Date.now() }]
+          ? [{ url: current.data.outputUrl, kind: current.data.outputKind ?? result.kind, at: current.data.lastRun ?? Date.now(), seed: current.data.outputSeed }]
           : []),
         ...(current.data.outputHistory ?? []),
       ]
@@ -1484,6 +1485,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
         cost: model.cost,
         lastRun: Date.now(),
         outputHistory: renderHistory,
+        outputSeed: result.seed,
         error: undefined,
       });
       get().addAsset({

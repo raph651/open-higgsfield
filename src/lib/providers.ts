@@ -14,6 +14,7 @@ export interface GenerationRequest {
   model: ModelDef;
   prompt: string;
   seed?: number;
+  strength?: number;
   aspect?: Aspect;
   duration?: number;
   resolution?: string;
@@ -33,6 +34,7 @@ export interface GenerationResult {
   kind: OutputKind;
   provider: string;
   latencyMs: number;
+  seed?: number;
 }
 
 export interface Provider {

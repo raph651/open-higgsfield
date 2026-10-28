@@ -138,6 +138,7 @@ export function GenerationPanel() {
     }));
   const references = linkedReferences.slice(0, 3);
   const history = node.data.outputHistory ?? [];
+  const showingIndex = history.findIndex((item) => item.url === node.data.outputUrl);
   const isVideo = model.family === 'video';
   const resolutions = model.resolutions ?? (isVideo ? ['720p', '1080p'] : ['1k', '2k', '4k']);
 
@@ -485,14 +486,35 @@ export function GenerationPanel() {
                 }
               />
             </label>
-
+            {!isVideo && references.length > 0 && (
+              <label className="gen-field">
+                <span>Variation</span>
+                <input
+                  type="range"
+                  min={0.3}
+                  max={1}
+                  step={0.05}
+                  value={node.data.strength ?? 0.55}
+                  onChange={(event) => updateNodeData(node.id, { strength: Number(event.target.value) })}
+                />
+                <small>{(node.data.strength ?? 0.55).toFixed(2)} · higher moves further from the reference</small>
+              </label>
+            )}
           </div>
         )}
 
 
         {history.length > 0 && (
           <div className="gen-history">
-            <span className="gen-label">History</span>
+            <span className="gen-label">
+              History
+              {showingIndex >= 0 && (
+                <em className="gen-history__now">
+                  showing render {history.length - showingIndex} of {history.length}
+                  {node.data.outputSeed != null ? ` · seed ${node.data.outputSeed}` : ''}
+                </em>
+              )}
+            </span>
             <div className="gen-history__row">
               {history.map((item, index) => {
                 const showing = item.url === node.data.outputUrl;
@@ -501,11 +523,12 @@ export function GenerationPanel() {
                     key={item.url}
                     className={`gen-history__item${showing ? ' gen-history__item--active' : ''}`}
                     aria-pressed={showing}
-                    title={showing ? `Render ${history.length - index}, showing now` : `Show render ${history.length - index}`}
+                    title={`${showing ? `Render ${history.length - index}, showing now` : `Show render ${history.length - index}`}${item.seed != null ? ` · seed ${item.seed}` : ''}`}
                     onClick={() =>
                       updateNodeData(node.id, {
                         outputUrl: item.url,
                         outputKind: item.kind,
+                        outputSeed: item.seed,
                         status: 'done',
                       })
                     }
