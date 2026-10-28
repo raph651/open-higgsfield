@@ -109,9 +109,8 @@ export function sizeForLtx(aspect: Aspect | undefined): WorkflowSize {
 }
 
 /**
- * LTX-Video 2B distilled. Short clips only on 24 GB unified memory:
- * 49 frames at 24 fps = ~2 seconds at 512×512.
- * Frame count must be 8n + 1.
+ * LTX-Video 2B distilled. Frame count must be 8n + 1.
+ * Larger frame counts are supported, but need enough unified memory.
  */
 export function ltxVideoWorkflow(params: LtxVideoParams): Record<string, unknown> {
   return {
@@ -202,9 +201,9 @@ export function ltxVideoWorkflow(params: LtxVideoParams): Record<string, unknown
 }
 
 export function framesForDuration(duration: number): number {
-  const raw = Math.max(2, Math.min(4, duration)) * 24;
+  const raw = Math.max(2, Math.min(10, duration)) * 24;
   const rounded = Math.round(raw / 8) * 8 + 1;
-  return Math.max(17, Math.min(97, rounded));
+  return Math.max(17, Math.min(241, rounded));
 }
 
 export interface LtxImageParams extends LtxVideoParams {

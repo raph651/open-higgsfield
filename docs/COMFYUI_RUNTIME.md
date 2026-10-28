@@ -1,6 +1,6 @@
-# How OpenFrame uses ComfyUI
+# How Open Source Canvas uses ComfyUI
 
-OpenFrame is a **custom canvas front-end over the ComfyUI API**. It is not a ComfyUI UI clone, and it does not reimplement diffusion. Every local render is a ComfyUI workflow submitted to a running ComfyUI server.
+Open Source Canvas is a **custom canvas front-end over the ComfyUI API**. It is not a ComfyUI UI clone, and it does not reimplement diffusion. Every local render is a ComfyUI workflow submitted to a running ComfyUI server.
 
 ## Request flow
 

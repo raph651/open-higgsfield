@@ -1,3 +1,5 @@
+import { getClientId } from './clientId';
+
 export interface ComfyImageRef {
   filename: string;
   subfolder: string;
@@ -55,8 +57,10 @@ export class ComfyClient {
 
   private async request(path: string, init: RequestInit = {}): Promise<Response> {
     let response: Response;
+    const headers = new Headers(init.headers);
+    headers.set('x-openframe-client', getClientId());
     try {
-      response = await fetch(`${this.baseUrl}${path}`, init);
+      response = await fetch(`${this.baseUrl}${path}`, { ...init, headers });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(

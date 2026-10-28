@@ -1,0 +1,401 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Open Source Canvas promo v4</title>
+<!-- 20 s hard-cut ad on a 120 BPM grid. Every frame is a pure function of t: window.render(t). render.mjs --v 4 steps it at
+     60 fps. Picture: our own ComfyUI renders, screenshots of our own app (dashboard plate, board layers drawn in three.js). -->
+<style>
+  @font-face { font-family: "Space Grotesk"; src: url("../hyperframes/assets/fonts/space-grotesk.woff2") format("woff2"); font-weight: 300 700; }
+  :root { --bg: #05070a; --fg: #f4f4ef; --lime: #d7ff3f; --on: #0a0c05; --tile: #11161d; --line: rgba(255,255,255,.14); --mute: #8d948f;
+    --sans: "Space Grotesk", "Inter", -apple-system, system-ui, sans-serif; --mono: ui-monospace, "SF Mono", Menlo, monospace; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 720px; overflow: hidden; background: #000; }
+  body { font-family: var(--sans); color: var(--fg); -webkit-font-smoothing: antialiased; }
+  #stage { position: absolute; inset: 0; background: var(--bg); will-change: transform; }
+  .scene { position: absolute; inset: 0; overflow: hidden; display: none; }
+  .abs { position: absolute; }
+  .big { font-weight: 700; letter-spacing: -0.045em; line-height: .88; white-space: nowrap; text-transform: uppercase; }
+  .lime { color: var(--lime); }
+  .mono { font-family: var(--mono); letter-spacing: 0; }
+  .pill { display: inline-flex; align-items: center; gap: 10px; border-radius: 999px; padding: 9px 18px; font-size: 20px; font-weight: 600; }
+  canvas { display: block; }
+
+  /* hook */
+  #h-canvas { position: absolute; inset: 0; width: 1280px; height: 720px; }
+  #h-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,7,10,.88) 0%, rgba(5,7,10,.55) 42%, rgba(5,7,10,0) 70%); }
+
+  /* montage */
+  #m-canvas { position: absolute; right: 0; top: 0; width: 640px; height: 720px; }
+  #m-edge { position: absolute; right: 636px; top: 0; width: 8px; height: 720px; background: var(--lime); }
+
+  /* site */
+  #d-wrap { position: absolute; inset: 0; perspective: 1700px; background: radial-gradient(900px 500px at 50% 40%, #0d1620, #05070a); }
+  #d-box { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; overflow: hidden; border-radius: 14px; transform-style: flat; box-shadow: 0 40px 120px rgba(0,0,0,.7); }
+  .plate { position: absolute; left: 0; top: 0; width: 1440px; transform-origin: 0 0; will-change: transform; }
+  .plate img { position: absolute; left: 0; top: 0; width: 1440px; }
+  .halo { position: absolute; border-radius: 22px; box-shadow: 0 0 0 3px var(--lime), 0 0 60px rgba(215,255,63,.35); opacity: 0; }
+
+  /* boards */
+  .cursor { position: absolute; left: 0; top: 0; width: 30px; height: 30px; z-index: 5; filter: drop-shadow(0 3px 6px rgba(0,0,0,.6)); }
+  .ripple { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 4px solid var(--lime); opacity: 0; z-index: 4; }
+  .word { position: absolute; left: 40px; bottom: 44px; z-index: 20; font-size: 84px; padding: 12px 34px 18px 28px; background: rgba(5,7,10,.86); border-left: 10px solid var(--lime); border-radius: 6px; }
+  .word .n { display: block; font-family: var(--mono); font-size: 16px; letter-spacing: 0; color: var(--lime); font-weight: 500; margin-bottom: 10px; text-shadow: none; }
+
+  /* counter / end */
+  #s8 { background: #000; }
+  #s10, #s3 { background: var(--lime); color: var(--on); }
+  .row { position: absolute; display: flex; align-items: baseline; gap: 18px; white-space: nowrap; }
+  .row { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .row .nm { font-size: 44px; font-weight: 700; letter-spacing: -0.035em; line-height: 1; }
+  .row .org { font-family: var(--mono); font-size: 15px; color: var(--mute); }
+  .row .lk { position: absolute; right: 0; top: 8px; font-family: var(--mono); font-size: 20px; color: var(--lime); }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 15px; font-weight: 600; letter-spacing: .04em; color: var(--on); background: var(--lime); border-radius: 6px; padding: 3px 9px; margin-left: 10px; vertical-align: middle; }
+  .mark { border-radius: 50%; background: var(--on); display: flex; align-items: center; justify-content: center; transform: rotate(-18deg); }
+  .mark span { border-radius: 10px; background: var(--lime); }
+
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 60; pointer-events: none; }
+  #black { position: absolute; inset: 0; background: #000; opacity: 0; z-index: 59; pointer-events: none; }
+  #grain { position: absolute; inset: -20px; z-index: 58; pointer-events: none; opacity: .09; mix-blend-mode: overlay; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>"); }
+</style>
+</head>
+<body>
+<div id="stage">
+
+<canvas id="gl" width="1280" height="720" style="position:absolute; left:0; top:0; width:1280px; height:720px; display:none"></canvas>
+
+<!-- 1 · hook: the clip, full bleed -->
+<section class="scene" id="s1">
+  <canvas id="h-canvas" width="1920" height="1080"></canvas><div id="h-shade"></div>
+  <div class="abs big" id="h-a" style="left:64px; top:150px; font-size:176px">one<br>prompt.</div>
+  <div class="abs big lime" id="h-b" style="left:64px; top:150px; font-size:176px">one<br>film.</div>
+  <div class="abs pill mono" id="h-tag" style="left:64px; bottom:48px; background:rgba(5,7,10,.7); border:2px solid var(--line); font-size:25px; font-weight:600; padding:12px 24px"><span style="width:15px;height:15px;border-radius:50%;background:var(--lime);display:inline-block"></span>ComfyUI · LTX-2.5 via API</div>
+</section>
+
+<!-- 2 · montage: one moving shot per beat -->
+<section class="scene" id="s2">
+  <canvas id="m-canvas" width="960" height="1080"></canvas>
+  <div id="m-edge"></div>
+  <div class="abs big" id="m-word" style="left:56px; top:230px; font-size:150px"></div>
+  <div class="abs mono" id="m-tag" style="left:60px; bottom:44px; font-size:25px; font-weight:600; color:var(--lime)">ComfyUI · LTX-2.5 via API</div>
+</section>
+
+<!-- 3 · logo slam -->
+<section class="scene" id="s3">
+  <div class="abs mark" id="l-mark" style="left:104px; top:56px; width:120px; height:120px; gap:9px"><span style="width:13px;height:40px"></span><span style="width:13px;height:64px"></span><span style="width:13px;height:30px"></span></div>
+  <div class="abs big" id="l-name" style="left:98px; top:196px; font-size:168px">open source<br>canvas</div>
+  <div class="abs big" id="l-sub" style="left:104px; top:520px; font-size:46px; letter-spacing:-0.03em">the graph is the studio.</div>
+</section>
+
+<!-- 4 · the site -->
+<section class="scene" id="s4">
+  <div id="d-wrap"><div id="d-box" style="transform-origin:50% 50%">
+    <div class="plate" id="dash" style="height:1882px">
+      <img id="dash-a" src="site/dash.png" style="height:1882px">
+      <img id="dash-b" src="site/dash-templates.png" style="height:1882px; opacity:0">
+      <div class="halo" id="h-badge" style="left:1036px; top:53px; width:122px; height:38px; border-radius:19px"></div>
+    </div>
+  </div></div>
+  <div class="word big" id="d-word"></div>
+</section>
+
+<!-- 5 · FrameJutsu board (three.js into #gl) -->
+<section class="scene" id="s5">
+  <div class="ripple" id="ripple-f"></div>
+  <svg class="cursor" id="cursor-f" viewBox="0 0 24 24"><path d="M3 2l17 9-7.5 2L9 21z" fill="#fff" stroke="#0a0c05" stroke-width="1.6" stroke-linejoin="round"/></svg>
+  <div class="word big" id="f-word"></div>
+</section>
+
+<!-- 6 · Marketing Studio board (three.js into #gl) -->
+<section class="scene" id="s6">
+  <div class="ripple" id="ripple-m"></div>
+  <svg class="cursor" id="cursor-m" viewBox="0 0 24 24"><path d="M3 2l17 9-7.5 2L9 21z" fill="#fff" stroke="#0a0c05" stroke-width="1.6" stroke-linejoin="round"/></svg>
+  <div class="word big" id="m-wordb"></div>
+</section>
+
+<!-- 7 · the product films: the levitating can, then the pop-art fizz ring -->
+<section class="scene" id="s7">
+  <canvas id="p-canvas" width="1920" height="1080" style="position:absolute; left:0; top:0; width:1280px; height:720px"></canvas>
+  <div class="word big" id="p-word"></div>
+</section>
+
+<!-- 8 · one clip, local or API, in ComfyUI -->
+<section class="scene" id="s8">
+  <div class="abs big" id="k-a" style="left:64px; top:96px; font-size:150px">one clip.</div>
+  <div class="abs big" id="k-b" style="left:64px; top:250px; font-size:150px">local<br>or API.</div>
+  <div class="abs big lime" id="k-c" style="left:64px; top:540px; font-size:104px">in comfyui.</div>
+  <div class="abs" style="left:64px; right:64px; bottom:36px; height:10px; border-radius:5px; background:rgba(255,255,255,.12); overflow:hidden"><div id="k-bar" style="height:100%; width:0; background:var(--lime)"></div></div>
+</section>
+
+<!-- 8 · the model list: open weights from Hugging Face, and the API section -->
+<section class="scene" id="s9">
+  <div class="abs mono" id="o-h" style="left:64px; top:46px; font-size:18px; color:var(--lime)">OPEN WEIGHTS · HUGGING FACE · RUN IN COMFYUI</div>
+  <div class="abs big" id="o-t" style="left:64px; top:72px; font-size:64px">open weights.</div>
+  <div class="abs mono" id="a-h" style="left:776px; top:46px; font-size:18px; color:var(--lime)">API · VIA THE MODEL ADAPTER</div>
+  <div class="abs big" id="a-t" style="left:776px; top:72px; font-size:64px">api.</div>
+  <div class="abs" style="left:742px; top:60px; width:3px; height:540px; background:var(--line)"></div>
+  <div class="abs mono" id="o-foot" style="left:64px; bottom:36px; font-size:15px; color:var(--mute)">license territory per model · API via model adapter · wired today: SD-Turbo, LTX-Video 2B · likes: huggingface.co, 2026-10-27</div>
+</section>
+
+<!-- 9 · end card -->
+<section class="scene" id="s10">
+  <div class="abs mark" id="e-mark" style="left:104px; top:120px; width:130px; height:130px; gap:10px"><span style="width:14px;height:44px"></span><span style="width:14px;height:70px"></span><span style="width:14px;height:34px"></span></div>
+  <div class="abs big" id="e-a" style="left:98px; top:270px; font-size:150px">run it</div>
+  <div class="abs big" id="e-b" style="left:98px; top:400px; font-size:150px">local.</div>
+  <div class="abs big" id="e-c" style="left:102px; top:572px; font-size:64px; letter-spacing:-0.035em">with comfyui.</div>
+  <div class="abs big" id="e-name" style="right:70px; top:110px; font-size:70px; text-align:right">open source<br>canvas</div>
+</section>
+
+<div id="black"></div><div id="flash"></div><div id="grain"></div>
+</div>
+
+<script src="frames/manifest.js"></script>
+<script src="site/rects.js"></script>
+<script src="layers/layers.js"></script>
+<script src="timeline4.js"></script>
+<script type="module">
+import { createBoard } from './board3d.js';
+const P = PROMO4, C = P.cuts, F = P.fj, M = P.ms;
+// popular open-weight video models on Hugging Face, by likes (huggingface.co API, 2026-10-27), and the API models
+// US-eligible licenses, supported by ComfyUI (docs.comfy.org lists LTX-2.5 as natively supported; README lists Wan 2.1/2.2, HunyuanVideo 1.5, Mochi), most-liked first.
+// MiniMax H3 is open weights but its community license excludes the US, EU, UK and South Korea: shown with that limit on the row.
+const OPEN = [['LTX-2.5', 'Lightricks · community license', '9.6k'], ['MiniMax H3', 'MiniMax · community license (not US/EU/UK/KR)', '6.4k'], ['Wan 2.1', 'Wan-AI · Apache-2.0', '1.6k'], ['Mochi 1', 'genmo · Apache-2.0', '1.4k'], ['HunyuanVideo 1.5', 'tencent · community license (not EU/UK/KR)', '1.1k'], ['Wan 2.2', 'Wan-AI · Apache-2.0', '0.9k']];
+// API models, as ComfyUI's partner-node docs and the app's model adapter name them
+const API_GROUPS = [
+  ['VIDEO', [['Seedance 2.5', 'ByteDance'], ['Seedance 2.0', 'ByteDance'], ['Kling 4.0', 'Kuaishou'], ['MiniMax H3', 'MiniMax'], ['Veo 3.1', 'Google']]],
+  ['IMAGE', [['Nano Banana Pro', 'Google'], ['Seedream 5.0 Pro', 'ByteDance'], ['FLUX.3', 'Black Forest Labs'], ['GPT Image 2.5', 'OpenAI']]],
+];
+const API = API_GROUPS.flatMap((g) => g[1]);
+const $ = (s) => document.querySelector(s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const eo = (x) => 1 - Math.pow(1 - x, 3);
+const eio = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const lerp = (a, b, p) => a + (b - a) * p;
+const show = (id, on) => { $(id).style.display = on ? 'block' : 'none'; };
+
+// ---- clips: JPEG sequences, loaded on demand ----
+const cache = new Map();
+function frame(id, idx) {
+  const n = FJ[id].n, k = ((idx % n) + n) % n + 1, key = `${id}:${k}`;
+  if (!cache.has(key)) {
+    cache.set(key, new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = `frames/${id}/${String(k).padStart(4, '0')}.jpg`; }));
+    if (cache.size > 60) cache.delete(cache.keys().next().value);
+  }
+  return cache.get(key);
+}
+async function draw(canvas, id, tt, fx = 0.5) {   // fx: which part of a too-wide frame to keep, 0 = left edge, 1 = right edge
+  const im = await frame(id, Math.floor(tt * FJ[id].fps));
+  const g = canvas.getContext('2d'), w = canvas.width, h = canvas.height, s = Math.max(w / im.width, h / im.height);
+  g.drawImage(im, (w - im.width * s) * fx, (h - im.height * s) / 2, im.width * s, im.height * s);
+}
+
+// ---- motion helpers ----
+// a word that slams in: hard cut on, scale down from 1.5, with an RGB split for the first frames
+function slam(el, t, at, { scale = 1.5, hold = true } = {}) {
+  const u = t - at;
+  if (u < 0 || (!hold && u > 0.6)) { el.style.opacity = 0; return; }
+  const p = eo(clamp(u / 0.14)), s = lerp(scale, 1, p);
+  el.style.opacity = 1; el.style.transform = `scale(${s})`; el.style.transformOrigin = el.classList.contains('word') ? '0 100%' : '0 50%';
+  const onLime = !!el.closest('#s3, #s10');
+  el.style.textShadow = u < 0.12 ? '-7px 0 rgba(255,42,79,.85), 7px 0 rgba(0,229,255,.85)' : (onLime ? 'none' : '0 6px 40px rgba(0,0,0,.6)');
+}
+function track(keys, t, ease = eio) {
+  if (t <= keys[0].t) return keys[0];
+  const last = keys[keys.length - 1];
+  if (t >= last.t) return last;
+  let i = 0; while (t > keys[i + 1].t) i++;
+  const a = keys[i], b = keys[i + 1], p = ease(seg(t, a.t, b.t)), out = {};
+  for (const k of Object.keys(a)) out[k] = typeof a[k] === 'number' ? lerp(a[k], b[k] ?? a[k], p) : a[k];
+  return out;
+}
+const litv = (t, a, b) => (t >= a && t < b ? eo(seg(t, a, a + 0.2)) * (1 - seg(t, b - 0.2, b)) : 0);
+const flatness = (c) => clamp(1 - (Math.abs(c.yaw) / 10 + Math.abs(c.pitch) / 8 + Math.max(0, c.s - 0.95) / 0.25));
+const HUD = (x, y) => ({ x: 640 + (x - 720) * 0.8, y: 360 + (y - 450) * 0.8 });
+function cursor3d(id, rid, board, path, clicks, t) {
+  const c = track(path, t), p = board.project(c.x, c.y, c.z ?? 120), h = HUD(c.x, c.y), k = c.hud ?? 0;
+  const sx = lerp(p.x, h.x, k), sy = lerp(p.y, h.y, k);
+  const press = clicks.reduce((m, q) => Math.max(m, 1 - clamp(Math.abs(t - q) / 0.12)), 0);
+  const el = $(id); el.style.transform = `translate(${sx - 3}px, ${sy - 2}px) scale(${1.5 - 0.15 * press})`;
+  el.style.opacity = t < path[0].t || t > path[path.length - 1].t + 0.01 ? 0 : 1;
+  const r = $(rid); let a = 0, bp = 0;
+  for (const q of clicks) { const pp = seg(t, q, q + 0.4); if (pp > 0 && pp < 1) { a = 1 - pp; bp = pp; } }
+  r.style.opacity = a * 0.9; r.style.left = `${sx}px`; r.style.top = `${sy}px`; r.style.transform = `scale(${0.4 + bp * 1.1})`;
+}
+// big board caption: word list [time, step, text]
+function word(sel, list, t, tEnd) {
+  let cur = null; for (const w of list) if (t >= w[0]) cur = w;
+  const el = $(sel);
+  if (!cur || t > tEnd) { el.style.opacity = 0; return; }
+  if (el.dataset.k !== cur[2]) { el.dataset.k = cur[2]; el.innerHTML = `<span class="n">${cur[1]}</span>${cur[2]}`; }
+  slam(el, t, cur[0], { scale: 1.35 });
+}
+
+// ---- boards ----
+const clipCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const fjClips = { gen: clipCanvas(828, 477), out: clipCanvas(732, 477) };
+let fjBoard, msBoard;
+const boardsReady = (async () => {
+  const L = LAYERS.framejutsu;
+  fjBoard = await createBoard('framejutsu', LAYERS, { gen: { canvas: fjClips.gen, nodeIndex: 3, rect: L.selected.media }, out: { canvas: fjClips.out, nodeIndex: 4, rect: L.nodes[4].media } });
+  msBoard = await createBoard('marketing', LAYERS, {});
+})();
+const WORDS = ['actor.', 'car.', 'scene.', 'product.'];
+const DS = 1280 / 1440;
+
+window.ready = Promise.all([document.fonts.ready, boardsReady, ...[...document.images].map((i) => i.decode().catch(() => {}))]);
+
+window.render = async function (t) {
+  // global: a shake only on the few real hits (opening, logo drop, end card), a white flash on every cut
+  let sh = 0;
+  for (const [ti, a] of P.hits) if (t >= ti) sh += a * Math.exp(-(t - ti) * 15);
+  $('#stage').style.transform = `translate(${Math.sin(t * 93 + 1) * 12 * sh}px, ${Math.cos(t * 71) * 10 * sh}px) rotate(${Math.sin(t * 57) * 0.7 * sh}deg)`;
+  let fl = 0;
+  for (const b of Object.values(C)) if (b > 0 && t >= b - 0.025 && t < b + 0.09) fl = Math.max(fl, t < b ? 0.5 : 1 - (t - b) / 0.09);
+  $('#flash').style.opacity = fl;
+  // the stop-downs: the audio drops out for 0.2 s before each drop, the picture goes black for the last 0.1 s
+  $('#black').style.opacity = P.holes.some((h) => t >= h + 0.1 && t < h + 0.2) ? 1 : 0;
+  $('#grain').style.transform = `translate(${(Math.floor(t * 24) * 37) % 20}px, ${(Math.floor(t * 24) * 53) % 20}px)`;
+
+  const sc = t < C.montage ? 1 : t < C.logo ? 2 : t < C.site ? 3 : t < C.fj ? 4 : t < C.ms ? 5 : t < C.product ? 6 : t < C.comfy ? 7 : t < C.models ? 8 : t < C.end ? 9 : 10;
+  for (let i = 1; i <= 10; i++) show(`#s${i}`, i === sc);
+  $('#gl').style.display = sc === 5 || sc === 6 ? 'block' : 'none';
+
+  if (sc === 1) {
+    // a music-video cut on every beat: four moments of the car shot, each punched in on the downbeat
+    const starts = [0.0, 1.7, 3.4, 4.8], hb = Math.min(3, Math.floor(t / P.beat)), hub = t - hb * P.beat;
+    await draw($('#h-canvas'), 'gen', starts[hb] + hub);
+    $('#h-canvas').style.transform = `scale(${1.1 - 0.1 * eo(clamp(hub / 0.45))})`;
+    slam($('#h-a'), t, 0.0); $('#h-b').style.opacity = 0;
+    if (t >= 1.0) { $('#h-a').style.opacity = 0; slam($('#h-b'), t, 1.0); }
+    $('#h-tag').style.opacity = clamp(seg(t, 0.3, 0.5));
+  }
+
+  if (sc === 2) {
+    const u = t - C.montage, b = Math.min(3, Math.floor(u / P.beat)), ub = u - b * P.beat;
+    const MON = [['gen', 4.8, 0.5], ['gen', 0.1, 0.62], ['gen', 5.7, 0.72], ['prod', 0.9, 0.5]];   // [clip, seconds in, which part of the frame]
+    const cv = $('#m-canvas'); await draw(cv, MON[b][0], MON[b][1] + ub * 0.6, MON[b][2]);
+    cv.style.transform = `scale(${1.22 - 0.22 * eo(clamp(ub / 0.25))}) translateX(${(1 - eo(clamp(ub / 0.12))) * 80}px)`;
+    const w = $('#m-word'); w.textContent = WORDS[b]; w.style.color = b % 2 ? '#d7ff3f' : '#f4f4ef';
+    slam(w, ub, 0, { scale: 1.45 });
+    $('#m-edge').style.transform = `scaleY(${eo(clamp(ub / 0.1))})`;
+  }
+
+  if (sc === 3) {
+    const u = t - C.logo;
+    const mp = eo(clamp(u / 0.3));
+    $('#l-mark').style.transform = `rotate(${-18 - (1 - mp) * 200}deg) scale(${mp})`;
+    slam($('#l-name'), t, C.logo + 0.04, { scale: 1.7 });
+    slam($('#l-sub'), t, C.logo + 0.5, { scale: 1.25 });
+  }
+
+  if (sc === 4) {
+    const u = t - C.site;
+    // the page, tilted in 3D: hero first, then a fast scroll to the templates
+    const y = track([{ t: 0, y: 0 }, { t: P.site.scroll - C.site, y: 0 }, { t: P.site.studio - C.site, y: 1030 }], u).y;
+    $('#dash').style.transform = `translateY(${-y * DS}px) scale(${DS})`;
+    $('#dash-b').style.opacity = seg(u, 0.55, 0.6);
+    const tilt = track([{ t: 0, a: -14, b: 5, z: -160 }, { t: 1.0, a: 4, b: 1, z: -40 }, { t: 2.0, a: 9, b: -2, z: 0 }], u);
+    $('#d-box').style.transform = `translateZ(${tilt.z}px) rotateY(${tilt.a}deg) rotateX(${tilt.b}deg)`;
+    word('#d-word', [[C.site + 0.1, 'THE PAGE', 'your studio.'], [P.site.scroll + 0.3, 'TEMPLATES', 'start from one.']], t, C.fj - 0.05);
+  }
+
+  if (sc === 5) {
+    const cam = track([
+      { t: C.fj, cx: 720, cy: 450, s: 0.78, yaw: -26, pitch: 10, fx: 640, fy: 360 },
+      { t: 8.85, cx: 720, cy: 450, s: 0.88, yaw: 6, pitch: 3, fx: 640, fy: 360 },
+      { t: F.select + 0.15, cx: 720, cy: 450, s: 0.85, yaw: 0, pitch: 0, fx: 640, fy: 360 },
+      { t: F.select + 0.45, cx: 1000, cy: 400, s: 1.25, yaw: -9, pitch: 3, fx: 700, fy: 330 },
+      { t: F.node - 0.2, cx: 1000, cy: 400, s: 1.25, yaw: -9, pitch: 3, fx: 700, fy: 330 },
+      { t: F.node + 0.1, cx: 716, cy: 352, s: 2.1, yaw: 10, pitch: 4, fx: 640, fy: 372 },
+      { t: F.out - 0.1, cx: 716, cy: 352, s: 2.1, yaw: -8, pitch: 2, fx: 640, fy: 372 },
+      { t: F.out + 0.25, cx: 1144, cy: 451, s: 2.1, yaw: -6, pitch: 3, fx: 640, fy: 372 },
+      { t: C.ms - 0.2, cx: 1144, cy: 451, s: 2.1, yaw: 8, pitch: 0, fx: 640, fy: 372 },
+    ], t);
+    if (t >= F.node - 0.3) { await draw(fjClips.gen, 'gen', Math.max(0, t - (F.node - 0.3))); fjBoard.overlays.gen.texture.needsUpdate = true; }
+    if (t >= F.out - 0.1) { await draw(fjClips.out, 'gen', Math.max(0, t - (F.out - 0.1)) + 0.6); fjBoard.overlays.out.texture.needsUpdate = true; }
+    fjBoard.update({
+      cam, selected: seg(t, F.select, F.select + 0.12) * (1 - seg(t, F.out, F.out + 0.12)), chrome: flatness(cam),
+      panel: eo(seg(t, F.panel, F.panel + 0.4)) * (1 - seg(t, F.node - 0.4, F.node - 0.1)), menu: 0,
+      halos: { 0: litv(t, F.refs, F.refs + 0.7), 1: litv(t, F.refs + 0.3, F.refs + 1.0), 2: litv(t, F.refs + 0.6, F.refs + 1.3), 3: litv(t, F.select - 0.1, F.select + 0.4), 4: litv(t, F.out + 0.2, F.out + 1.2) },
+      overlays: { gen: t >= F.node - 0.3 ? 1 : 0, out: t >= F.out - 0.1 ? 1 : 0 },
+    });
+    cursor3d('#cursor-f', '#ripple-f', fjBoard, [
+      { t: C.fj + 0.2, x: 900, y: 700, z: 100 }, { t: F.select - 0.08, x: 716, y: 352, z: 110 }, { t: F.select + 0.5, x: 900, y: 600, z: 100 },
+    ], [F.select], t);
+    word('#f-word', [[C.fj + 0.15, '01', 'stills in.'], [F.select + 0.05, '02', 'write it.'], [F.node, '03', 'render it.'], [F.out, '04', 'ship it.']], t, C.ms - 0.1);
+  }
+
+  if (sc === 6) {
+    const cam = track([
+      { t: C.ms, cx: 720, cy: 450, s: 0.78, yaw: 24, pitch: 9, fx: 640, fy: 360 },
+      { t: 13.9, cx: 720, cy: 450, s: 0.88, yaw: -8, pitch: 3, fx: 640, fy: 360 },
+      { t: M.select + 0.2, cx: 720, cy: 450, s: 0.85, yaw: 0, pitch: 0, fx: 640, fy: 360 },
+      { t: M.select + 0.5, cx: 1000, cy: 400, s: 1.25, yaw: 8, pitch: 3, fx: 700, fy: 330 },
+      { t: M.plus - 0.3, cx: 1000, cy: 400, s: 1.25, yaw: 8, pitch: 3, fx: 700, fy: 330 },
+      { t: M.plus - 0.05, cx: 720, cy: 450, s: 0.85, yaw: 0, pitch: 0, fx: 640, fy: 360 },
+      { t: M.plus + 0.25, cx: 700, cy: 560, s: 1.1, yaw: -10, pitch: 4, fx: 640, fy: 360 },
+      { t: C.product - 0.1, cx: 700, cy: 560, s: 1.1, yaw: 6, pitch: 2, fx: 640, fy: 360 },
+    ], t);
+    msBoard.update({
+      cam, selected: seg(t, M.select, M.select + 0.12), chrome: flatness(cam),
+      panel: eo(seg(t, M.select + 0.08, M.select + 0.45)) * (1 - seg(t, M.plus, M.plus + 0.15)),
+      menu: eo(seg(t, M.plus + 0.05, M.plus + 0.4)),
+      halos: { 0: litv(t, M.refs, M.refs + 0.7), 1: litv(t, M.refs + 0.3, M.refs + 1.0), 2: litv(t, M.refs + 0.6, M.refs + 1.3), 3: litv(t, M.select - 0.1, M.select + 0.4) },
+      overlays: {},
+    });
+    cursor3d('#cursor-m', '#ripple-m', msBoard, [
+      { t: C.ms + 0.2, x: 900, y: 700, z: 100 }, { t: M.select - 0.08, x: 716, y: 352, z: 110 }, { t: M.select + 0.5, x: 1204, y: 475, z: 240 },
+      { t: M.plus - 0.55, x: 1204, y: 475, z: 240 }, { t: M.plus - 0.25, x: 991, y: 853, z: 0, hud: 1 }, { t: M.plus + 0.4, x: 991, y: 853, z: 0, hud: 1 },
+    ], [M.select, M.plus], t);
+    word('#m-wordb', [[C.ms + 0.15, '01', 'scene. product. talent.'], [M.select + 0.05, '02', 'one prompt.'], [M.plus + 0.05, '03', 'add anything.']], t, C.product - 0.1);
+  }
+
+  if (sc === 7) {
+    // two product films cut on the beat: the can (product-hero) and the pop-art take (rc-gen)
+    const u = t - C.product, b = Math.min(3, Math.floor(u / P.beat)), ub = u - b * P.beat;
+    const cuts = [['prod', 0.5], ['rc', 0.1], ['prod', 2.9], ['rc', 4.3]];   // rc at 4.3 s: he is smiling, ring above his face
+    await draw($('#p-canvas'), cuts[b][0], cuts[b][1] + ub);
+    $('#p-canvas').style.transform = `scale(${1.1 - 0.1 * eo(clamp(ub / 0.45))})`;
+    word('#p-word', [[C.product + 0.1, 'PRODUCT FILM', 'one prompt.'], [C.product + 1.05, 'LTX-2.5 VIA API', 'creative first.']], t, C.comfy - 0.05);
+  }
+
+  if (sc === 8) {
+    // one clip, local or API, in ComfyUI: three slams and a bar that fills, no numbers
+    slam($('#k-a'), t, C.comfy + 0.0, { scale: 1.4 }); slam($('#k-b'), t, C.comfy + 0.5, { scale: 1.4 }); slam($('#k-c'), t, C.comfy + 1.0, { scale: 1.4 });
+    $('#k-bar').style.width = `${eo(seg(t, C.comfy + 0.2, C.models - 0.3)) * 100}%`;
+  }
+
+  if (sc === 9) {
+    // the model list: left, open weights on Hugging Face; right, the API models. a row per 0.25 s
+    const u = t - C.models;
+    slam($('#o-t'), t, C.models + 0.0, { scale: 1.3 }); slam($('#a-t'), t, C.models + 0.9, { scale: 1.3 });
+    $('#o-h').style.opacity = clamp(seg(u, 0.05, 0.2)); $('#a-h').style.opacity = clamp(seg(u, 0.95, 1.1));
+    $('#o-foot').style.opacity = clamp(seg(u, 1.9, 2.1));
+    const host = $('#s9');
+    if (!host.dataset.built) {
+      host.dataset.built = '1';
+      OPEN.forEach((m, i) => { const r = document.createElement('div'); r.className = 'row'; r.id = `row-o${i}`; r.style.cssText = `left:64px; width:640px; top:${176 + i * 76}px`; r.innerHTML = `<span class="nm">${m[0]}</span><span class="org">${m[1]}</span><span class="lk">♥ ${m[2]}</span>`; host.appendChild(r); });
+      let k = 0;
+      API_GROUPS.forEach(([label, items], gi) => {
+        const y0 = gi === 0 ? 152 : 412;
+        const g = document.createElement('div'); g.className = 'mono'; g.id = `grp-${gi}`; g.style.cssText = `position:absolute; left:776px; top:${y0}px; font-size:14px; color:#d7ff3f`; g.textContent = label; host.appendChild(g);
+        items.forEach((m, i) => { const r = document.createElement('div'); r.className = 'row'; r.id = `row-a${k++}`; r.style.cssText = `left:776px; width:440px; top:${y0 + 24 + i * 46}px; flex-direction:row; align-items:baseline; gap:14px`; r.innerHTML = `<span class="nm" style="font-size:32px">${m[0]}</span><span class="org">${m[1]}</span>`; host.appendChild(r); });
+      });
+    }
+    OPEN.forEach((m, i) => slam($(`#row-o${i}`), t, C.models + 0.12 + i * 0.14, { scale: 1.12 }));
+    API.forEach((m, i) => slam($(`#row-a${i}`), t, C.models + 0.95 + i * 0.13, { scale: 1.12 }));
+    API_GROUPS.forEach((g, gi) => { $(`#grp-${gi}`).style.opacity = clamp(seg(u, gi === 0 ? 0.95 : 0.95 + 5 * 0.13, gi === 0 ? 1.1 : 0.95 + 5 * 0.13 + 0.15)); });
+  }
+
+  if (sc === 10) {
+    const u = t - C.end, mp = eo(clamp(u / 0.3));
+    $('#e-mark').style.transform = `rotate(${-18 - (1 - mp) * 200}deg) scale(${mp})`;
+    slam($('#e-name'), t, C.end + 0.05, { scale: 1.4 }); $('#e-name').style.transformOrigin = '100% 50%';
+    slam($('#e-a'), t, C.end + 0.1, { scale: 1.5 }); slam($('#e-b'), t, C.end + 0.35, { scale: 1.5 });
+    slam($('#e-c'), t, C.end + 0.75, { scale: 1.3 });
+  }
+};
+</script>
+</body>
+</html>

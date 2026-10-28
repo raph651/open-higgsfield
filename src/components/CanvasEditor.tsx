@@ -354,7 +354,7 @@ function EditorCanvas() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
-      author: 'OpenFrame',
+      author: 'Open Source Canvas',
       text: 'Local chat preview. Create a share room to chat live with collaborators.',
     },
   ]);
@@ -712,7 +712,7 @@ function EditorCanvas() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${doc.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'openframe'}.json`;
+    anchor.download = `${doc.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'open-source-canvas'}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
     showToast('Canvas exported as JSON');

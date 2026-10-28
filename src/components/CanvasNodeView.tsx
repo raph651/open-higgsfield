@@ -53,6 +53,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
       ? 'var(--accent-soft)'
       : meta.color;
   const model = (data.model ? MODEL_BY_ID[data.model] : null) ?? MODELS[0];
+  const nodeTitle = data.kind === 'model' ? model?.name ?? data.title : data.title;
   const setSelected = useCanvasStore((state) => state.setSelected);
   const openDetails = useCanvasStore((state) => state.openDetails);
   const openPage = useCanvasStore((state) => state.openPage);
@@ -349,12 +350,12 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
       )}
 
       <div className="node__head">
-        <span className="node__title">{data.title}</span>
+        <span className="node__title">{nodeTitle}</span>
         {data.kind === 'model' && (
           <GenerationTypePicker
             variant="node"
             family={model?.family === 'video' ? 'video' : 'image'}
-            label={data.title}
+            label={nodeTitle}
             onChange={switchGenerationFamily}
           />
         )}

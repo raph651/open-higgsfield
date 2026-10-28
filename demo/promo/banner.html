@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Business banner</title>
+<!-- The Business-plan banner: a typographic collage in the app's lime and black, built from our own renders. Layout idea after
+     bold launch-poster collages (giant stacked words, overlapping media tiles, small mono labels); everything shown is ours.
+     Every frame is a pure function of t (window.render(t)); a 6 s loop. render-banner.mjs writes public/business-ad.mp4. -->
+<style>
+  @font-face { font-family: "Space Grotesk"; src: url("../hyperframes/assets/fonts/space-grotesk.woff2") format("woff2"); font-weight: 300 700; }
+  :root { --lime: #d7ff3f; --ink: #0a0c05; --mono: ui-monospace, "SF Mono", Menlo, monospace; --sans: "Space Grotesk", "Inter", system-ui, sans-serif; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 800px; height: 400px; overflow: hidden; background: var(--lime); }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: var(--lime); }
+  .w { position: absolute; font-family: var(--sans); font-weight: 700; letter-spacing: -0.05em; line-height: .8; text-transform: uppercase; color: var(--ink); white-space: nowrap; will-change: transform; }
+  .tile { position: absolute; overflow: hidden; background: #111; will-change: transform; box-shadow: 0 10px 28px rgba(10,12,5,.28); }
+  .tile canvas, .tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tag { position: absolute; font-family: var(--mono); font-size: 7.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); will-change: transform; }
+  .tag.chip { background: var(--ink); color: var(--lime); padding: 2px 5px; }
+  #ruin { position: absolute; left: 250px; top: -30px; width: 300px; height: 470px; mix-blend-mode: multiply; opacity: .62; filter: grayscale(1) contrast(1.35) brightness(1.2); }
+  #ruin img { width: 100%; height: 100%; object-fit: cover; }
+  .bar { position: absolute; background: var(--ink); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="ruin"><img id="ruin-img" src="../own-media/refs/ruin.webp"></div>
+
+  <div class="w" id="w1" style="left:12px; top:16px; font-size:136px;">Canvas</div>
+  <div class="w" id="w2" style="left:398px; top:132px; font-size:88px;">for</div>
+  <div class="w" id="w3" style="left:142px; top:242px; font-size:128px;">Teams.</div>
+
+  <div class="tile" id="tA" style="left:566px; top:14px; width:214px; height:120px;"><canvas id="cA" width="640" height="360"></canvas></div>
+  <div class="tile" id="tB" style="left:16px; top:156px; width:108px; height:144px;"><img id="iB" src="../own-media/seedream/ms-out.png"></div>
+  <div class="tile" id="tC" style="left:618px; top:148px; width:162px; height:92px;"><canvas id="cC" width="640" height="360"></canvas></div>
+  <div class="tile" id="tD" style="left:14px; top:312px; width:170px; height:76px;"><img id="iD" src="../own-media/refs/house.webp"></div>
+  <div class="tile" id="tE" style="left:624px; top:282px; width:156px; height:100px;"><img id="iE" src="../own-media/refs/runway.webp"></div>
+
+  <div class="tag chip" id="g1" style="left:570px; top:126px;">LTX-2.5 · API</div>
+  <div class="tag chip" id="g2" style="left:18px; top:292px;">Seedream 5.0 Pro</div>
+  <div class="tag" id="g3" style="left:620px; top:244px;">Product film</div>
+  <div class="tag" id="g4" style="left:18px; top:150px;">Business</div>
+  <div class="tag" id="g5" style="left:626px; top:384px;">One board</div>
+  <div class="bar" id="b1" style="left:142px; top:230px; width:52px; height:7px;"></div>
+</div>
+<script src="frames/manifest.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const LOOP = 6;
+const TAU = Math.PI * 2;
+const cache = new Map();
+function frame(id, idx) {
+  const n = FJ[id].n, k = ((idx % n) + n) % n + 1, key = `${id}:${k}`;
+  if (!cache.has(key)) {
+    cache.set(key, new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = `frames/${id}/${String(k).padStart(4, '0')}.jpg`; }));
+    if (cache.size > 80) cache.delete(cache.keys().next().value);
+  }
+  return cache.get(key);
+}
+async function draw(canvas, id, tt, fx = 0.5) {
+  const im = await frame(id, Math.floor(tt * FJ[id].fps));
+  const g = canvas.getContext('2d'), w = canvas.width, h = canvas.height, s = Math.max(w / im.width, h / im.height);
+  g.drawImage(im, (w - im.width * s) * fx, (h - im.height * s) / 2, im.width * s, im.height * s);
+}
+// a gentle periodic drift so the loop closes: each element has its own phase and amplitude
+const drift = (el, t, ph, ax, ay, rot = 0, scale = 0) => {
+  const a = (t / LOOP) * TAU + ph;
+  el.style.transform = `translate(${Math.sin(a) * ax}px, ${Math.cos(a * 2) * ay}px) rotate(${Math.sin(a) * rot}deg) scale(${1 + Math.sin(a + 1) * scale})`;
+};
+window.ready = Promise.all([document.fonts.ready, ...[...document.images].map((i) => i.decode().catch(() => {}))]);
+window.render = async function (t) {
+  drift($('#w1'), t, 0, 4, 1.5); drift($('#w2'), t, 1.4, -5, 2); drift($('#w3'), t, 2.6, 5, 1.5);
+  drift($('#tA'), t, 0.6, -6, 3, 0.6); drift($('#tB'), t, 2.0, 4, -4, -0.8); drift($('#tC'), t, 3.2, -4, 4, 0.7);
+  drift($('#tD'), t, 4.1, 5, 3, -0.6); drift($('#tE'), t, 5.0, -5, -3, 0.5);
+  for (const [id, ph] of [['g1', 0.6], ['g2', 2.0], ['g3', 3.2], ['g4', 0], ['g5', 5.0]]) drift($('#' + id), t, ph, 2, 1);
+  $('#b1').style.transform = `scaleX(${0.55 + 0.45 * (0.5 + 0.5 * Math.sin((t / LOOP) * TAU * 2))})`; $('#b1').style.transformOrigin = '0 50%';
+  // the ruin layer slowly pushes in; the Seedream and ruin stills get a slow ken-burns
+  $('#ruin-img').style.transform = `scale(${1.04 + 0.05 * (0.5 - 0.5 * Math.cos((t / LOOP) * TAU))})`;
+  $('#iB').style.transform = `scale(${1.05 + 0.08 * (0.5 - 0.5 * Math.cos((t / LOOP) * TAU))})`;
+  $('#iE').style.transform = `scale(${1.04 + 0.08 * (0.5 - 0.5 * Math.cos((t / LOOP) * TAU + 1))})`;
+  $('#iD').style.transform = `scale(${1.04 + 0.08 * (0.5 - 0.5 * Math.cos((t / LOOP) * TAU + 2))})`;
+  // the video tiles play their own clip, each starting somewhere different
+  await draw($('#cA'), 'gen', 0.2 + t * 0.95, 0.5);
+  await draw($('#cC'), 'prod', 0.3 + t * 0.85, 0.5);
+};
+</script>
+</body>
+</html>

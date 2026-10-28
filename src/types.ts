@@ -9,6 +9,8 @@ export type ModelId =
   | 'soul-2.0'
   | 'ltx-video-2b'
   | 'ltx-2.3'
+  | 'ltx-2.5'
+  | 'seedream-5.0-pro'
   | 'seedance-2.0'
   | 'seedance-2.5';
 export type Aspect = '1:1' | '16:9' | '9:16' | '4:5' | '21:9' | '4:3' | '3:4';

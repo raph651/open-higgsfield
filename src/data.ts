@@ -48,6 +48,25 @@ export const MODELS: ModelDef[] = [
     accent: '#f4d9a4',
   },
   {
+    id: 'seedream-5.0-pro',
+    name: 'Seedream 5.0 Pro',
+    family: 'image',
+    runtime: 'api',
+    cost: 5,
+    blurb: 'ByteDance Seedream 5.0 Pro through ComfyUI\'s ByteDance partner nodes. Up to 4K, multi-reference.',
+    accent: '#ff9bb5',
+  },
+  {
+    id: 'ltx-2.5',
+    name: 'LTX-2.5',
+    family: 'video',
+    runtime: 'api',
+    cost: 12,
+    blurb: 'Lightricks LTX-2.5 (Fast and Pro) through ComfyUI\'s LTX API partner nodes. Up to 4K, with synchronized sound.',
+    accent: '#d7ff3f',
+    resolutions: ['720p', '1080p'],
+  },
+  {
     id: 'seedance-2.0',
     name: 'Seedance 2.0',
     family: 'video',
@@ -72,6 +91,8 @@ export const MODELS: ModelDef[] = [
 export const MODEL_BY_ID: Record<ModelId, ModelDef> = Object.fromEntries(
   MODELS.map((model) => [model.id, model]),
 ) as Record<ModelId, ModelDef>;
+
+export const OPEN_MODELS = MODELS.filter((model) => model.runtime === 'comfyui');
 
 export const NODE_META: Record<
   NodeKind,
@@ -150,25 +171,25 @@ function node(
 function buildProductFilm() {
   const p = Math.random().toString(36).slice(2, 7);
   const ref = node(`${p}-ref`, 'reference', 20, 210, {
-    title: 'Ceramic still',
-    label: 'CERAMIC / 01',
+    title: 'Product shot',
+    label: 'PRODUCT',
     previewUrl: undefined,
   });
   const image = node(`${p}-img`, 'model', 320, 160, {
     title: 'SD-Turbo',
     model: 'sd-turbo',
     prompt:
-      'A tall bone-white ceramic vessel on wet black stone. One hard sidelight, deep shadow, a single acid-green reflection at the rim. Editorial product photography, 85mm.',
+      'A single silver aluminium soda can with an abstract orange and purple colour-block design and condensation droplets on a pastel studio set. Soft studio light, glossy reflections. No readable text.',
     aspect: '4:5',
     cost: 3,
   });
   const video = node(`${p}-vid`, 'model', 620, 160, {
-    title: 'LTX-Video 2B',
-    model: 'ltx-video-2b',
+    title: 'LTX-2.5',
+    model: 'ltx-2.5',
     prompt:
-      'Slow 20-degree orbit around the vessel. The reflection travels across the glaze. Subtle steam. Locked exposure, no cuts.',
+      'Product commercial. The can levitates and slowly spins in a pastel studio. A slow-motion ring of splash, floating ice cubes and citrus slices orbits it, macro condensation droplets, glossy reflections; the camera pushes in with a smooth motion-control move.',
     duration: 6,
-    cost: 8,
+    cost: 12,
   });
   const out = node(`${p}-out`, 'output', 920, 240, { title: 'Launch cut' });
   return {
@@ -251,35 +272,35 @@ function buildObjectsSwap() {
   const actor = node(`${p}-actor`, 'reference', 20, 80, {
     title: 'Actor',
     label: 'ACTOR',
-    previewUrl: '/templates/objects-swap/actor.webp',
+    previewUrl: '/templates/objects-swap/actor.jpg',
     mediaKind: 'image',
   });
   const car = node(`${p}-car`, 'reference', 20, 360, {
     title: 'Car',
     label: 'CAR',
-    previewUrl: '/templates/objects-swap/car.webp',
+    previewUrl: '/templates/objects-swap/car.jpg',
     mediaKind: 'image',
   });
   const source = node(`${p}-source`, 'reference', 20, 640, {
-    title: 'Source motion',
-    label: 'SOURCE',
-    previewUrl: '/templates/objects-swap/source.mp4',
-    mediaKind: 'video',
+    title: 'Scene',
+    label: 'SCENE',
+    previewUrl: '/templates/objects-swap/scene.jpg',
+    mediaKind: 'image',
   });
   const swap = node(`${p}-swap`, 'model', 420, 260, {
-    title: 'Seedance 2.0',
-    model: 'seedance-2.0',
+    title: 'LTX-2.5',
+    model: 'ltx-2.5',
     prompt:
-      'Swap the actor with @Actor and the car with @Car in @Source.',
-    resolution: '720p',
+      'Music video, night. A young woman with wavy auburn hair and a white t-shirt leans against the hood of a glossy black sports car on a rain-soaked neon street, wind lifting her hair in slow motion. Headlights flare through the rain, anamorphic lens flares, teal and magenta neon reflections. The camera orbits slowly around her.',
+    resolution: '1080p',
     aspect: '16:9',
-    duration: 15,
+    duration: 6,
     cost: 12,
     outputUrl: '/templates/objects-swap/generation.mp4',
     outputKind: 'video',
     status: 'done',
   });
-  const out = node(`${p}-out`, 'output', 860, 360, { title: 'FrameJutsu' });
+  const out = node(`${p}-out`, 'output', 860, 360, { title: 'Music Video' });
   return {
     nodes: [actor, car, source, swap, out],
     edges: [
@@ -313,15 +334,18 @@ function buildMarketingStudio() {
     mediaKind: 'image',
   });
   const image = node(`${p}-image`, 'model', 420, 260, {
-    title: 'Nano Banana Pro',
-    model: 'nano-banana-pro',
+    title: 'Seedream 5.0 Pro',
+    model: 'seedream-5.0-pro',
     prompt:
-      'Place @Product and @Avatar into the scene from @Reference. Keep the original lighting, camera and materials consistent.',
+      'Place the woman from the avatar in the street scene from the reference, holding the silver soda can from the product up toward the camera with a bright smile. Keep her white oval sunglasses and green jacket, the can\'s orange and purple colour-block design and the scene\'s pastel colours and golden light. Editorial lifestyle advertising photograph.',
     resolution: '2k',
-    aspect: '1:1',
-    cost: 6,
+    aspect: '3:4',
+    cost: 5,
+    outputUrl: '/templates/marketing-studio/output.jpg',
+    outputKind: 'image',
+    status: 'done',
   });
-  const out = node(`${p}-out`, 'output', 860, 360, { title: 'Marketing Studio' });
+  const out = node(`${p}-out`, 'output', 860, 360, { title: 'Image Output' });
   return {
     nodes: [reference, product, avatar, image, out],
     edges: [
@@ -345,26 +369,29 @@ function buildRecreate() {
   const product = node(`${p}-product`, 'reference', 20, 360, {
     title: 'Product',
     label: 'PRODUCT',
-    previewUrl: '/templates/recreate/product.webp',
+    previewUrl: '/templates/recreate/product.jpg',
     mediaKind: 'image',
   });
   const avatar = node(`${p}-avatar`, 'reference', 20, 640, {
     title: 'Avatar',
     label: 'AVATAR',
-    previewUrl: '/templates/recreate/avatar.webp',
+    previewUrl: '/templates/recreate/avatar.jpg',
     mediaKind: 'image',
   });
   const video = node(`${p}-video`, 'model', 420, 260, {
-    title: 'Seedance 2.0',
-    model: 'seedance-2.0',
+    title: 'LTX-2.5',
+    model: 'ltx-2.5',
     prompt:
-      'Replace the product with @Product and the avatar with @Avatar. Keep the source motion, camera and environment.',
-    resolution: '720p',
-    aspect: '9:16',
-    duration: 12,
+      'Pop-art product film in a bright, colourful studio. A young man in a blue shirt and a cap cracks open an aluminium soda can. A controlled slow-motion ring of orange fizz, ice crystals and citrus slices lifts gently around the can and orbits past his head, never covering his face. Smooth camera, saturated candy colours.',
+    resolution: '1080p',
+    aspect: '16:9',
+    duration: 6,
     cost: 12,
+    outputUrl: '/templates/recreate/preview.mp4',
+    outputKind: 'video',
+    status: 'done',
   });
-  const out = node(`${p}-out`, 'output', 860, 360, { title: 'Recreate' });
+  const out = node(`${p}-out`, 'output', 860, 360, { title: 'Video Output' });
   return {
     nodes: [source, product, avatar, video, out],
     edges: [
@@ -383,7 +410,10 @@ export const TEMPLATES: TemplateDef[] = [
     description: 'Still → motion → delivery. A four-node launch pipeline.',
     tag: 'Commerce',
     accent: '#ff7a3d',
-    previewSeed: 'ceramic launch film',
+    previewSeed: 'product film can',
+    previewUrl: '/templates/product-film/preview.mp4',
+    previewKind: 'video',
+    previewPoster: '/templates/product-film/poster.jpg',
     nodeCount: 4,
     build: buildProductFilm,
   },
@@ -394,6 +424,9 @@ export const TEMPLATES: TemplateDef[] = [
     tag: 'Motion',
     accent: '#8bd3ff',
     previewSeed: 'ribbon of light',
+    previewUrl: '/templates/motion-study/preview.mp4',
+    previewKind: 'video',
+    previewPoster: '/templates/motion-study/poster.jpg',
     nodeCount: 4,
     build: buildMotionStudy,
   },
@@ -404,13 +437,16 @@ export const TEMPLATES: TemplateDef[] = [
     tag: 'Character',
     accent: '#ffb27a',
     previewSeed: 'mira doorway sodium',
+    previewUrl: '/templates/character-loop/preview.mp4',
+    previewKind: 'video',
+    previewPoster: '/templates/character-loop/poster.jpg',
     nodeCount: 5,
     build: buildCharacterLoop,
   },
   {
     id: 'objects-swap',
-    name: 'FrameJutsu',
-    description: 'Swap an actor and a car into the motion of a source clip with Seedance 2.0.',
+    name: 'Music Video',
+    description: 'Frame an actor, a car and a scene, then direct the shot as a music video with LTX-2.5.',
     tag: 'References',
     accent: '#ff9bb5',
     previewSeed: 'objects swap actor car',
@@ -423,11 +459,11 @@ export const TEMPLATES: TemplateDef[] = [
   {
     id: 'marketing-studio',
     name: 'Marketing Studio',
-    description: 'Compose a product and a talent into a reference scene with a free prompt.',
+    description: 'Compose a product and a talent into a reference scene with Seedream 5.0 Pro.',
     tag: 'Marketing',
     accent: '#8bd3ff',
     previewSeed: 'marketing studio product talent',
-    previewUrl: '/templates/marketing-studio/reference.jpg',
+    previewUrl: '/templates/marketing-studio/output.jpg',
     previewKind: 'image',
     nodeCount: 5,
     build: buildMarketingStudio,
@@ -435,7 +471,7 @@ export const TEMPLATES: TemplateDef[] = [
   {
     id: 'recreate',
     name: 'Recreate',
-    description: 'Replace the avatar and product in a source clip with a custom prompt.',
+    description: 'Start from a product film, a product shot and an avatar, and direct a new take with LTX-2.5.',
     tag: 'Video',
     accent: '#ff8aa5',
     previewSeed: 'recreate source clip avatar product',

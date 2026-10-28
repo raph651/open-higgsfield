@@ -119,15 +119,20 @@ function uid(): string {
   return `id-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
 }
 
-function initialTemplateDoc(): CanvasDoc {
-  const template = TEMPLATES[0];
-  const built = template.build();
-  return {
-    id: 'demo-ceramic',
-    title: 'Ceramic / launch film',
-    updatedAt: Date.now() - 1000 * 60 * 60 * 30,
-    ...built,
-  };
+// The starter canvases: the three example boards, each with its finished output (generated with LTX-2.5 and
+// Seedream 5.0 Pro), so a first-time visitor opens a board that already shows what a run produces.
+const EXAMPLE_CANVASES: Array<{ templateId: string; id: string; title: string; hoursAgo: number }> = [
+  { templateId: 'objects-swap', id: 'example-framejutsu', title: 'Music Video', hoursAgo: 30 },
+  { templateId: 'marketing-studio', id: 'example-marketing-studio', title: 'Marketing Studio', hoursAgo: 52 },
+  { templateId: 'recreate', id: 'example-recreate', title: 'Recreate', hoursAgo: 76 },
+];
+
+function initialExampleDocs(): CanvasDoc[] {
+  return EXAMPLE_CANVASES.map(({ templateId, id, title, hoursAgo }) => {
+    const template = TEMPLATES.find((item) => item.id === templateId) ?? TEMPLATES[0];
+    const built = template.build();
+    return { id, title, updatedAt: Date.now() - 1000 * 60 * 60 * hoursAgo, ...built };
+  });
 }
 
 interface Persisted {
@@ -173,14 +178,14 @@ function loadPersisted(): Partial<Persisted> | null {
 }
 
 const persisted = loadPersisted();
-const seed = initialTemplateDoc();
-const initialDocs = persisted?.docs ?? { [seed.id]: seed };
+const seedDocs = initialExampleDocs();
+const initialDocs = persisted?.docs ?? Object.fromEntries(seedDocs.map((doc) => [doc.id, doc]));
 if (persisted?.docs) {
   for (const doc of Object.values(initialDocs)) {
-    if (doc.title === 'Objects Swap') doc.title = 'FrameJutsu';
+    if (doc.title === 'Objects Swap' || doc.title === 'FrameJutsu') doc.title = 'Music Video';
   }
 }
-const initialOrder = persisted?.order ?? [seed.id];
+const initialOrder = persisted?.order ?? seedDocs.map((doc) => doc.id);
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let runToken = 0;
@@ -313,7 +318,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
           !doc.pageParentId &&
           (doc.templateId === templateId ||
             (templateId === 'objects-swap' &&
-              (doc.title === 'FrameJutsu' || doc.title === 'Objects Swap')) ||
+              (doc.title === 'Music Video' || doc.title === 'FrameJutsu' || doc.title === 'Objects Swap')) ||
             (templateId === 'marketing-studio' && doc.title === 'Marketing Studio') ||
             (templateId === 'recreate' && doc.title === 'Recreate')),
       );
@@ -1564,10 +1569,10 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
   },
 
   resetWorkspace: () => {
-    const fresh = initialTemplateDoc();
+    const fresh = initialExampleDocs();
     set({
-      docs: { [fresh.id]: fresh },
-      order: [fresh.id],
+      docs: Object.fromEntries(fresh.map((doc) => [doc.id, doc])),
+      order: fresh.map((doc) => doc.id),
       templates: [],
       assets: [],
       versions: [],

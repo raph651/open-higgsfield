@@ -1,4 +1,4 @@
-# Higgsfield Canvas → OpenFrame feature audit
+# Higgsfield Canvas → Open Source Canvas feature audit
 
 **Date:** 2026-10-22  
 **Method:** public Canvas pages, Creator Hub help docs, launch coverage, team-plan page, and the user-provided dashboard screenshots. No authenticated account access was used. Signed-in-only details are marked unverified.
@@ -34,7 +34,7 @@ The launch material frames it as production infrastructure, not a single-user ge
 
 ### A. Workspace / dashboard
 
-| Feature | Higgsfield | OpenFrame | Priority |
+| Feature | Higgsfield | Open Source Canvas | Priority |
 |---|---|---|---|
 | All Canvases tab | ✅ | ✅ | — |
 | Templates tab | ✅ | ✅ | — |
@@ -56,7 +56,7 @@ The launch material frames it as production infrastructure, not a single-user ge
 
 ### B. Canvas editor
 
-| Feature | Higgsfield | OpenFrame | Priority |
+| Feature | Higgsfield | Open Source Canvas | Priority |
 |---|---|---|---|
 | Infinite pan/zoom board | ✅ | ✅ | — |
 | Dot grid / canvas controls | ✅ | ✅ | — |
@@ -86,7 +86,7 @@ The launch material frames it as production infrastructure, not a single-user ge
 
 ### C. Nodes and models
 
-| Feature | Higgsfield | OpenFrame | Priority |
+| Feature | Higgsfield | Open Source Canvas | Priority |
 |---|---|---|---|
 | Prompt node | ✅ | ✅ | — |
 | Image model node | ✅ | ✅ SD-Turbo | — |
@@ -117,7 +117,7 @@ The launch material frames it as production infrastructure, not a single-user ge
 
 ### D. Execution
 
-| Feature | Higgsfield | OpenFrame | Priority |
+| Feature | Higgsfield | Open Source Canvas | Priority |
 |---|---|---|---|
 | Run single node | ✅ | ✅ | — |
 | Run selected / downstream | ✅ | 🟡 selected branch, not downstream | P1 |
@@ -138,7 +138,7 @@ The launch material frames it as production infrastructure, not a single-user ge
 
 ### E. Collaboration / assets
 
-| Feature | Higgsfield | OpenFrame | Priority |
+| Feature | Higgsfield | Open Source Canvas | Priority |
 |---|---|---|---|
 | Asset library | ✅ | ✅ local drawer with search/filter | — |
 | Upload images/audio to library | ✅ | 🟡 node-local only | P1 |
@@ -156,7 +156,7 @@ The launch material frames it as production infrastructure, not a single-user ge
 
 ### F. Integrations / ecosystem
 
-| Feature | Higgsfield | OpenFrame | Priority |
+| Feature | Higgsfield | Open Source Canvas | Priority |
 |---|---|---|---|
 | Figma / FigJam plugin | ✅ | ❌ | P3 |
 | MCP connector | ✅ | ❌ | P3 |
@@ -166,7 +166,7 @@ The launch material frames it as production infrastructure, not a single-user ge
 
 ### G. Billing
 
-| Feature | Higgsfield | OpenFrame | Priority |
+| Feature | Higgsfield | Open Source Canvas | Priority |
 |---|---|---|---|
 | Credit balance | ✅ | 🟡 demo | P2 |
 | Per-model credit cost | ✅ | 🟡 model metadata | P1 |

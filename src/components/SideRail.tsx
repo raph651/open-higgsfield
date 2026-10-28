@@ -33,7 +33,7 @@ export function SideRail({ onModels }: SideRailProps) {
 
   return (
     <aside className="rail">
-      <button className="rail__brand" onClick={() => go('studio')} aria-label="OpenFrame studio">
+      <button className="rail__brand" onClick={() => go('studio')} aria-label="Open Source Canvas studio">
         <Logo compact />
         <span>FRAME<span>/</span>GRAPH</span>
       </button>

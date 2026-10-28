@@ -1,0 +1,8 @@
+# Copy to ~/.cloudflared/config.yml and replace the UUID + hostname.
+tunnel: YOUR_TUNNEL_UUID
+credentials-file: /Users/YOU/.cloudflared/YOUR_TUNNEL_UUID.json
+
+ingress:
+  - hostname: open-source-canvas.yourdomain.com
+    service: http://127.0.0.1:4173
+  - service: http_status:404

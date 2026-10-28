@@ -19,7 +19,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { MODELS, TEMPLATES } from '../data';
+import { OPEN_MODELS, TEMPLATES } from '../data';
 import type { ModelId } from '../types';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { relativeTime } from '../lib/format';
@@ -67,6 +67,7 @@ export function Dashboard() {
       .filter((doc) => !doc.pageParentId)
       .filter((doc) => {
         if (
+          doc.title !== 'Music Video' &&
           doc.title !== 'FrameJutsu' &&
           doc.title !== 'Objects Swap' &&
           doc.title !== 'Marketing Studio' &&
@@ -90,7 +91,7 @@ export function Dashboard() {
       .filter((doc) => doc.title.toLowerCase().includes(query.toLowerCase()))
       .sort((a, b) => {
         const rank = (title: string) =>
-          title === 'FrameJutsu' ? 0 : title === 'Marketing Studio' ? 1 : title === 'Recreate' ? 2 : 3;
+          title === 'Music Video' || title === 'FrameJutsu' ? 0 : title === 'Marketing Studio' ? 1 : title === 'Recreate' ? 2 : 3;
         return rank(a.title) - rank(b.title);
       });
   }, [docs, order, query]);
@@ -239,7 +240,7 @@ export function Dashboard() {
       <header className="home-nav">
         <button className="home-brand" onClick={() => document.querySelector('.home')?.scrollTo({ top: 0, behavior: 'smooth' })}>
           <span className="home-brand__mark"><span /><span /><span /></span>
-          <span>OpenFrame</span>
+          <span>Open Source Canvas</span>
         </button>
         <nav className="home-nav__links">
           {NAV_ITEMS.map((item) => (
@@ -377,8 +378,7 @@ export function Dashboard() {
             </button>
           </div>
           <div className="home-business__art" aria-hidden="true">
-            <img src="/business-kling.webp" alt="" />
-            <span className="home-business__orb" />
+            <video src="/business-ad.mp4" poster="/business-ad-poster.jpg" autoPlay muted loop playsInline />
           </div>
         </section>
 
@@ -527,7 +527,7 @@ export function Dashboard() {
 
         <section className="home-final">
           <span className="home-kicker">The newest</span>
-          <h2>Open<em>Frame</em> 1.0</h2>
+          <h2>Open Source <em>Canvas</em> 1.0</h2>
           <p>Every model, every reference, one infinite board.</p>
           <button className="home-lime" onClick={() => createCanvas()}>Start creating <ArrowRight size={15} /></button>
         </section>
@@ -545,7 +545,7 @@ export function Dashboard() {
               seed the wrapper now, attach keys through a proxy later, keep the same graph.
             </p>
             <div className="model-grid">
-              {MODELS.map((model) => (
+              {OPEN_MODELS.map((model) => (
                 <div className="model-card" key={model.id}>
                   <span className="model-card__swatch" style={{ background: model.accent }} />
                   <div className="model-card__top">

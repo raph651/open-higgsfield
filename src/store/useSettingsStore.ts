@@ -46,7 +46,7 @@ export const useSettingsStore = create<SettingsState>()(
       checkpoint: 'sd_turbo.safetensors',
       videoCheckpoint: 'ltxv-2b-0.9.8-distilled-fp8.safetensors',
       textEncoder: 't5xxl_fp8_e4m3fn.safetensors',
-      videoDraft: true,
+      videoDraft: false,
       connection: 'unknown',
       connectionError: null,
       serverVersion: null,
@@ -98,6 +98,11 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'framegraph.settings.v1',
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Record<string, unknown>;
+        return (version < 2 ? { ...state, videoDraft: false } : state) as any;
+      },
       partialize: (state) => ({
         baseUrl: state.baseUrl,
         useComfy: state.useComfy,

@@ -88,7 +88,7 @@ export function AssetsPanel({ onUse, onClose }: AssetsPanelProps) {
               </span>
               <div className="asset-card__overlay">
                 <button onClick={() => onUse(asset)} title="Add to canvas"><Plus size={14} /></button>
-                <a href={asset.url} download={`openframe-asset-${asset.id}.${asset.kind === 'video' ? 'mp4' : 'png'}`} title="Download">
+                <a href={asset.url} download={`open-source-canvas-asset-${asset.id}.${asset.kind === 'video' ? 'mp4' : 'png'}`} title="Download">
                   <Download size={13} />
                 </a>
                 <button onClick={() => removeAsset(asset.id)} title="Delete asset"><Trash2 size={13} /></button>

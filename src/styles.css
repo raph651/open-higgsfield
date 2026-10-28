@@ -4047,7 +4047,8 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 }
 .home-lime:hover { background: #e5ff74; }
 .home-business__art { position: relative; min-height: 240px; }
-.home-business__art img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; opacity: .58; filter: saturate(.8); }
+.home-business__art img,
+.home-business__art video { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; opacity: .9; }
 .home-business__orb {
   position: absolute;
   right: 8%;
@@ -4224,6 +4225,7 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 :root[data-theme='light'] .home-business__copy h2 em { color: #6b8a00; }
 :root[data-theme='light'] .home-business li { color: #3f463f; }
 :root[data-theme='light'] .home-business__art img { opacity: .35; }
+:root[data-theme='light'] .home-business__art video { opacity: .95; }
 :root[data-theme='light'] .home-kicker { color: #7c857e; }
 :root[data-theme='light'] .home-feature { background: #fff; border-color: rgba(21,28,23,.1); }
 :root[data-theme='light'] .home-feature:hover { background: #fbfcf8; border-color: rgba(21,28,23,.22); }
@@ -4671,3 +4673,14 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
   font-size: 10px;
 }
 .home-cleanup:hover { color: var(--text); background: rgba(var(--ov-rgb),.07); }
+
+/* Keep reference thumbnails inside their square while the remove button overflows. */
+.gen-ref--removable img,
+.gen-ref--removable video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gen-ref--removable .gen-ref__remove { z-index: 2; }

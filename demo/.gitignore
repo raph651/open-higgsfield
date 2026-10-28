@@ -1,0 +1,22 @@
+assets/
+still-*.png
+sfx.wav
+sfx-norm.wav
+*.mp4
+hyperframes/renders/
+hyperframes/.hyperframes/
+hyperframes/node_modules/
+# generated or third-party media and caches; never commit these
+promo/frames/
+promo/layers/
+promo/site/
+promo/live/
+promo/ui/
+promo/*.wav
+promo/sfxbank/
+own-media/out/
+own-media/ltx25/
+own-media/seedream/
+own-media/biz/
+own-media/refs/
+hyperframes/

@@ -525,7 +525,7 @@ export function GenerationPanel() {
             )}
             <div className="gen-output__bar">
               <span>{model.runtime === 'api' ? 'API output' : 'ComfyUI output'}</span>
-              <a href={node.data.outputUrl} download={`openframe-${node.id}.${node.data.outputKind === 'video' ? 'mp4' : 'png'}`}>
+              <a href={node.data.outputUrl} download={`open-source-canvas-${node.id}.${node.data.outputKind === 'video' ? 'mp4' : 'png'}`}>
                 Download
               </a>
             </div>

@@ -60,7 +60,7 @@ export function ConnectionModal() {
           </button>
         </div>
         <p className="modal__lede">
-          OpenFrame is the canvas. ComfyUI is the engine. Point this at a local server or a
+          Open Source Canvas is the front end. ComfyUI is the engine. Point this at a local server or a
           Comfy Cloud endpoint. Runs go through the Comfy API, never a private vendor endpoint.
         </p>
 
