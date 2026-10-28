@@ -25,11 +25,13 @@ export interface CanvasNodeData extends Record<string, unknown> {
   aspect?: Aspect;
   duration?: number;
   seed?: number;
+  strength?: number;
   resolution?: string;
   batch?: number;
   generateAudio?: boolean;
   outputUrl?: string;
   outputKind?: OutputKind;
+  outputSeed?: number;
   cost?: number;
   note?: string;
   label?: string;
@@ -37,7 +39,7 @@ export interface CanvasNodeData extends Record<string, unknown> {
   mediaKind?: 'image' | 'video';
   error?: string;
   lastRun?: number;
-  outputHistory?: Array<{ url: string; kind: OutputKind; at: number }>;
+  outputHistory?: Array<{ url: string; kind: OutputKind; at: number; seed?: number }>;
   shape?: ShapeKind;
   touched?: boolean;
   variant?: 'sticky' | 'text';

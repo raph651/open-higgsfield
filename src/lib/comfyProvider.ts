@@ -127,7 +127,7 @@ export class ComfyProvider implements Provider {
             height: size.height,
             checkpoint: this.checkpoint,
             image: reference,
-            denoise: 0.55,
+            denoise: request.strength ?? 0.55,
           })
         : sdTurboWorkflow({
             prompt: request.prompt,
@@ -153,6 +153,7 @@ export class ComfyProvider implements Provider {
       kind,
       provider: 'comfyui',
       latencyMs: Math.round(performance.now() - started),
+      seed,
     };
   }
 
