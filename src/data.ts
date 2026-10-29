@@ -354,7 +354,7 @@ function buildMarketingStudio() {
     title: 'Seedream 5.0 Pro',
     model: 'seedream-5.0-pro',
     prompt:
-      'Place the woman from the avatar in the street scene from the reference, holding the silver soda can from the product up toward the camera with a bright smile. Keep her white oval sunglasses and green jacket, the can\'s orange and purple colour-block design and the scene\'s pastel colours and golden light. Editorial lifestyle advertising photograph.',
+      'Place the woman from @Avatar in the street scene from @Reference, holding the silver soda can from @Product up toward the camera with a bright smile. Keep her white oval sunglasses and green jacket, the can\'s orange and purple colour-block design and the scene\'s pastel colours and golden light. Editorial lifestyle advertising photograph.',
     resolution: '2k',
     aspect: '3:4',
     cost: 5,
