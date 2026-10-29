@@ -308,7 +308,7 @@ function buildObjectsSwap() {
     title: 'LTX-2.5',
     model: 'ltx-2.5',
     prompt:
-      'Music video, night. A young woman with wavy auburn hair and a white t-shirt leans against the hood of a glossy black sports car on a rain-soaked neon street, wind lifting her hair in slow motion. Headlights flare through the rain, anamorphic lens flares, teal and magenta neon reflections. The camera orbits slowly around her.',
+      'Music video, night. @Actor leans against the hood of @Car on a rain-soaked neon street, matching the mood of @Scene, wind lifting her hair in slow motion. Headlights flare through the rain, anamorphic lens flares, teal and magenta neon reflections. The camera orbits slowly around her.',
     resolution: '1080p',
     aspect: '16:9',
     duration: 6,
