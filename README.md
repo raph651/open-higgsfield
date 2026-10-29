@@ -15,7 +15,7 @@ also reach hosted models through ComfyUI's partner (API) nodes.
 <p align="center">
   <a href="docs/media/demo.mp4"><img src="docs/media/demo.gif" alt="Open Source Canvas demo: one prompt, one film" width="720"></a>
 </p>
-<p align="center"><sub>25 s demo. <a href="docs/media/demo.mp4">Watch it with sound</a> (MP4, 720p). All footage was generated for this project.</sub></p>
+<p align="center"><sub>25 s demo. <a href="docs/media/demo.mp4">Watch it with sound</a> (MP4, 1080p, 23 MB). All footage was generated for this project.</sub></p>
 
 ## Screenshots
 
@@ -24,7 +24,7 @@ also reach hosted models through ComfyUI's partner (API) nodes.
 | ![The studio home, night theme](docs/media/studio-night.jpg) | ![The studio home, day theme](docs/media/studio-day.jpg) |
 | The studio home, night theme | The studio home, day theme |
 | ![The Music Video board with the generation panel](docs/media/board-music-video.jpg) | ![The Marketing Studio board](docs/media/board-marketing-studio.jpg) |
-| Music Video: references into LTX-2.5, delivered as a clip | Marketing Studio: references into Seedream 5.0 Pro |
+| Music Video: references into LTX-2.5, delivered as a clip (night theme) | Marketing Studio: references into Seedream 5.0 Pro (day theme) |
 
 ![Your canvases](docs/media/canvases-night.jpg)
 
