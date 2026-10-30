@@ -12,7 +12,9 @@ export type ModelId =
   | 'ltx-2.5'
   | 'seedream-5.0-pro'
   | 'seedance-2.0'
-  | 'seedance-2.5';
+  | 'seedance-2.5'
+  | 'wan-2.2-ti2v-5b'
+  | 'pika-h3-flex';
 export type Aspect = '1:1' | '16:9' | '9:16' | '4:5' | '21:9' | '4:3' | '3:4';
 export type OutputKind = 'image' | 'video' | 'audio';
 
@@ -121,6 +123,24 @@ export interface CanvasDoc {
 
 export type ModelRuntime = 'comfyui' | 'api';
 
+/** What a local model needs on disk before ComfyUI can run it. Checked against the running ComfyUI. */
+export interface ModelInstall {
+  files: Array<{
+    /** the ComfyUI loader node and input that lists this kind of file, e.g. UNETLoader / unet_name */
+    node: string;
+    field: string;
+    file: string;
+    /** folder under the ComfyUI directory, e.g. models/diffusion_models */
+    folder: string;
+    url: string;
+    size?: string;
+  }>;
+  /** custom node packs the model needs besides the files */
+  customNodes?: string[];
+  note?: string;
+  docs: string;
+}
+
 export interface ModelDef {
   id: ModelId;
   name: string;
@@ -130,6 +150,10 @@ export interface ModelDef {
   blurb: string;
   accent: string;
   resolutions?: string[];
+  /** present on local models that are not part of a default ComfyUI install */
+  install?: ModelInstall;
+  /** false: listed and installable, but this app has no workflow for it yet */
+  workflow?: boolean;
 }
 
 export interface CanvasTemplate {

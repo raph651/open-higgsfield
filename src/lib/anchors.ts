@@ -52,7 +52,20 @@ export function nodeAt(point: { x: number; y: number }, boxes: Map<string, NodeB
   return best;
 }
 
-/** Top-right corner slot for the nth reaction on a node. */
-export function topRightSlot(box: NodeBox, index: number): { dx: number; dy: number } {
-  return { dx: box.w - 2 - index * 30, dy: 2 };
+/**
+ * Slot for the nth reaction on a node. The first one sits on the top right corner, the rest follow the border
+ * clockwise (down the right side, along the bottom, up the left, along the top) so they wrap around the node.
+ */
+export function perimeterSlot(box: NodeBox, index: number, spacing = 32): { dx: number; dy: number } {
+  const w = Math.max(box.w, 1);
+  const h = Math.max(box.h, 1);
+  const length = 2 * (w + h);
+  let d = (w + index * spacing) % length; // distance clockwise from the top left corner; w = top right corner
+  if (d < w) return { dx: d, dy: 0 };
+  d -= w;
+  if (d < h) return { dx: w, dy: d };
+  d -= h;
+  if (d < w) return { dx: w - d, dy: h };
+  d -= w;
+  return { dx: 0, dy: h - d };
 }

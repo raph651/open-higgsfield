@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { CanvasEditor } from './components/CanvasEditor';
 import { ConnectionModal } from './components/ConnectionModal';
+import { ModelInstallDialog } from './components/ModelInstallDialog';
 import { Dashboard } from './components/Dashboard';
 import { DemoBanner } from './components/DemoBanner';
 import { Toast } from './components/Toast';
@@ -108,6 +109,7 @@ export default function App() {
     <div className={`app app--${view}`}>
       {view === 'dashboard' ? <Dashboard /> : <CanvasEditor />}
       <ConnectionModal />
+      <ModelInstallDialog />
       <DemoBanner />
       <Toast />
     </div>

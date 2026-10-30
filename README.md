@@ -240,6 +240,10 @@ Read each model card before commercial use. Generated people and products in the
 `deploy/README.md` shows how to publish a running copy behind Cloudflare Tunnel and Cloudflare Access, keeping
 ComfyUI private on your machine.
 
+## Changes
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+
 ## License
 
 MIT. See [LICENSE](./LICENSE). Built with [ComfyUI](https://github.com/comfyanonymous/ComfyUI),

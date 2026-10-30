@@ -94,6 +94,12 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
   const pendingCaretRef = useRef<number | null>(null);
   const [mention, setMention] = useState<{ query: string; start: number; end: number } | null>(null);
   const [tableMenu, setTableMenu] = useState<'color' | 'more' | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // Height of a model node when it is not selected. The in/out handles stay at this height so the edges do not slide
+  // down when the node grows to show its prompt and controls.
+  const [restingHeight, setRestingHeight] = useState<number | null>(null);
+  // The prompt box only keeps the mouse wheel for itself when it has more text than fits; otherwise the wheel pans the canvas.
+  const [promptOverflows, setPromptOverflows] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const commitName = () => {
@@ -272,6 +278,20 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
     };
   }, [quickNumberMenu]);
 
+  const isSelected = Boolean(selected || storeSelected);
+  useLayoutEffect(() => {
+    const box = promptRef.current;
+    setPromptOverflows(Boolean(box && box.scrollHeight > box.clientHeight + 1));
+  }, [data.prompt, isSelected]);
+  useEffect(() => {
+    const element = rootRef.current;
+    if (!element || data.kind !== 'model' || isSelected) return;
+    const measure = () => setRestingHeight(element.offsetHeight || null);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [data.kind, isSelected]);
   if (data.kind === 'page') {
     return (
       <div
@@ -331,8 +351,15 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
     );
   }
 
+  // A node the user sized by hand does not grow, so its handles can stay centred.
+  const handleStyle =
+    data.kind === 'model' && storedHeight == null
+      ? { height: restingHeight ?? 213, bottom: 'auto' as const }
+      : undefined;
+
   return (
     <div
+      ref={rootRef}
       className={[
         'node',
         `node--${data.kind}`,
@@ -353,7 +380,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
         handleClassName="node-resizer__handle"
       />
       {data.kind !== 'prompt' && data.kind !== 'reference' && data.kind !== 'note' && data.kind !== 'shape' && data.kind !== 'table' && (
-        <Handle type="target" position={Position.Left} className="node-handle node-handle--in" />
+        <Handle type="target" position={Position.Left} className="node-handle node-handle--in" style={handleStyle} />
       )}
 
       <div className="node__head">
@@ -457,7 +484,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
 
             {(selected || storeSelected) && (
             <div
-              className="node__quick nodrag nowheel"
+              className="node__quick nodrag"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => event.stopPropagation()}
             >
@@ -466,7 +493,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                   <PromptMirror value={data.prompt ?? ''} lookup={mentionLookup} />
                   <textarea
                     ref={promptRef}
-                    className="nowheel"
+                    className={promptOverflows ? 'nowheel' : undefined}
                     value={data.prompt ?? ''}
                     placeholder={PROMPT_PLACEHOLDER}
                     rows={4}
@@ -642,7 +669,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                         className="node__quick-more"
                         title="Open settings"
                         aria-label="Open settings"
-                        onClick={() => openDetails(id)}
+                        onClick={() => openDetails(id, true)}
                       >
                         <Maximize2 size={11} />
                       </button>
@@ -956,7 +983,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
       </div>
 
       {data.kind !== 'output' && data.kind !== 'note' && data.kind !== 'shape' && data.kind !== 'table' && (
-        <Handle type="source" position={Position.Right} className="node-handle node-handle--out" />
+        <Handle type="source" position={Position.Right} className="node-handle node-handle--out" style={handleStyle} />
       )}
     </div>
   );

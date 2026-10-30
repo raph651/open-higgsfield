@@ -361,3 +361,116 @@ export function sdTurboImg2ImgWorkflow(params: SdImg2ImgParams): Record<string, 
     },
   };
 }
+
+
+// ── Sizes from the resolution and aspect ratio the node asks for ────────────────────────────────
+
+function ratio(aspect: Aspect | undefined, fallback: Aspect): [number, number] {
+  const [w, h] = (aspect ?? fallback).split(':').map(Number);
+  return [w || 1, h || 1];
+}
+
+function snap(value: number, multiple: number): number {
+  return Math.max(multiple, Math.round(value / multiple) * multiple);
+}
+
+/** Image tiers are a pixel budget, so a 3:4 "1k" holds about as many pixels as a 1:1 "1k". */
+const IMAGE_TIER_EDGE: Record<string, number> = { '512': 512, '768': 768, '1k': 1024, '2k': 2048, '4k': 4096 };
+
+export function sizeForImageTier(aspect: Aspect | undefined, tier: string | undefined, fallbackTier: string): WorkflowSize {
+  const edge = IMAGE_TIER_EDGE[tier ?? ''] ?? IMAGE_TIER_EDGE[fallbackTier] ?? 512;
+  const [rw, rh] = ratio(aspect, '1:1');
+  const width = Math.sqrt(edge * edge * (rw / rh));
+  return { width: snap(width, 8), height: snap(width * (rh / rw), 8) };
+}
+
+/** Video tiers name the short side: 480p of 16:9 is 854x480, rounded to what the model accepts. */
+const VIDEO_TIER_SHORT_SIDE: Record<string, number> = { '480p': 480, '720p': 720, '768p': 768, '1080p': 1080 };
+
+export function sizeForVideoTier(
+  aspect: Aspect | undefined,
+  tier: string | undefined,
+  fallbackTier: string,
+  multiple: number,
+): WorkflowSize {
+  const short = VIDEO_TIER_SHORT_SIDE[tier ?? ''] ?? VIDEO_TIER_SHORT_SIDE[fallbackTier] ?? 480;
+  const [rw, rh] = ratio(aspect, '16:9');
+  // 720 is not a multiple of 32: the short side rounds down (1280x704, the size Wan's own template uses) so the clip
+  // never gets bigger than named, and the long side rounds to nearest to keep the aspect ratio close.
+  const down = (value: number) => Math.max(multiple, Math.floor(value / multiple) * multiple);
+  const near = (value: number) => Math.max(multiple, Math.round(value / multiple) * multiple);
+  const base = down(short);
+  return rw >= rh
+    ? { width: near(base * (rw / rh)), height: base }
+    : { width: base, height: near(base * (rh / rw)) };
+}
+
+// ── Wan 2.2 TI2V 5B ────────────────────────────────────────────────────────────────────────────
+
+/** Wan 2.2 5B renders at 24 fps and wants 4n + 1 frames. */
+export function framesForWan(duration: number): number {
+  const seconds = Math.max(2, Math.min(10, duration));
+  const n = Math.round((seconds * 24 - 1) / 4);
+  return Math.max(25, Math.min(241, n * 4 + 1));
+}
+
+export interface WanTi2vParams {
+  prompt: string;
+  negative?: string;
+  seed: number;
+  width: number;
+  height: number;
+  frames: number;
+  unet: string;
+  textEncoder: string;
+  vae: string;
+  /** an uploaded still to start from (image to video); leave out for text to video */
+  image?: string;
+  steps?: number;
+}
+
+/** The ComfyUI template for Wan 2.2 TI2V 5B: one model handles both text and image to video. */
+export function wan22Ti2vWorkflow(params: WanTi2vParams): Record<string, unknown> {
+  const latentInputs: Record<string, unknown> = {
+    vae: ['39', 0],
+    width: params.width,
+    height: params.height,
+    length: params.frames,
+    batch_size: 1,
+  };
+  const graph: Record<string, unknown> = {
+    '37': { class_type: 'UNETLoader', inputs: { unet_name: params.unet, weight_dtype: 'default' } },
+    '38': { class_type: 'CLIPLoader', inputs: { clip_name: params.textEncoder, type: 'wan', device: 'default' } },
+    '39': { class_type: 'VAELoader', inputs: { vae_name: params.vae } },
+    '48': { class_type: 'ModelSamplingSD3', inputs: { model: ['37', 0], shift: 8 } },
+    '6': { class_type: 'CLIPTextEncode', inputs: { text: params.prompt, clip: ['38', 0] } },
+    '7': { class_type: 'CLIPTextEncode', inputs: { text: params.negative ?? '', clip: ['38', 0] } },
+    '3': {
+      class_type: 'KSampler',
+      inputs: {
+        model: ['48', 0],
+        seed: params.seed,
+        steps: params.steps ?? 20,
+        cfg: 5,
+        sampler_name: 'uni_pc',
+        scheduler: 'simple',
+        positive: ['6', 0],
+        negative: ['7', 0],
+        latent_image: ['55', 0],
+        denoise: 1,
+      },
+    },
+    '8': { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['39', 0] } },
+    '57': { class_type: 'CreateVideo', inputs: { images: ['8', 0], fps: 24 } },
+    '58': {
+      class_type: 'SaveVideo',
+      inputs: { video: ['57', 0], filename_prefix: 'osc/wan', format: 'auto', codec: 'auto' },
+    },
+  };
+  if (params.image) {
+    graph['56'] = { class_type: 'LoadImage', inputs: { image: params.image } };
+    latentInputs.start_image = ['56', 0];
+  }
+  graph['55'] = { class_type: 'Wan22ImageToVideoLatent', inputs: latentInputs };
+  return graph;
+}

@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { MODEL_BY_ID, LISTED_MODELS } from '../data';
 import type { ModelId } from '../types';
+import { STATIC_DEMO } from '../lib/staticDemo';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 interface ModelPickerProps {
   value: ModelId;
@@ -26,6 +28,10 @@ export function ModelPicker({ value, onChange, variant = 'panel', className = ''
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const model = MODEL_BY_ID[value] ?? LISTED_MODELS[0];
+  const installed = useSettingsStore((state) => state.installed);
+  const openInstall = useSettingsStore((state) => state.openInstall);
+  // Local models that need files stay in the list, but until ComfyUI can see them they open the install steps instead.
+  const needsInstall = (id: ModelId) => !STATIC_DEMO && Boolean(MODEL_BY_ID[id]?.install) && installed[id] === false;
 
   // An image node only offers image models and a video node only video models (the Image/Video switch changes family).
   const family = model.family;
@@ -92,8 +98,12 @@ export function ModelPicker({ value, onChange, variant = 'panel', className = ''
   }, [query]);
 
   const pick = (id: ModelId) => {
-    onChange(id);
     setOpen(false);
+    if (needsInstall(id)) {
+      openInstall(id);
+      return;
+    }
+    onChange(id);
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
@@ -170,7 +180,7 @@ export function ModelPicker({ value, onChange, variant = 'panel', className = ''
                   type="button"
                   role="option"
                   aria-selected={item.id === value}
-                  className={`model-menu__item ${index === highlight ? 'is-highlighted' : ''} ${item.id === value ? 'is-selected' : ''}`}
+                  className={`model-menu__item ${index === highlight ? 'is-highlighted' : ''} ${item.id === value ? 'is-selected' : ''} ${needsInstall(item.id) ? 'is-uninstalled' : ''}`}
                   onMouseEnter={() => setHighlight(index)}
                   onClick={() => pick(item.id)}
                 >
@@ -184,6 +194,7 @@ export function ModelPicker({ value, onChange, variant = 'panel', className = ''
                     <span className="model-menu__title">
                       {item.name}
                       {item.runtime === 'api' && <span className="model-menu__badge">API</span>}
+                      {needsInstall(item.id) && <span className="model-menu__badge model-menu__badge--install">INSTALL</span>}
                     </span>
                     <span className="model-menu__desc">{item.blurb}</span>
                   </span>

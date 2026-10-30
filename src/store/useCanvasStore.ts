@@ -74,7 +74,8 @@ interface WorkspaceState {
   setSelected: (id: string | null) => void;
   setDragging: (dragging: boolean) => void;
   markNodesTouched: (ids: string[]) => void;
-  openDetails: (id: string) => void;
+  /** `explicit` is the expand button: it opens the side panel even after the user dismissed it. */
+  openDetails: (id: string, explicit?: boolean) => void;
   closeDetails: () => void;
   applyRemoteDoc: (doc: CanvasDoc) => void;
   addComment: (x: number, y: number, text: string) => string | undefined;
@@ -83,7 +84,7 @@ interface WorkspaceState {
   removeStroke: (id: string) => void;
   clearStrokes: () => void;
   addReaction: (x: number, y: number, emoji: string, anchor?: { nodeId: string; dx: number; dy: number }) => void;
-  updateReaction: (id: string, patch: Partial<Pick<CanvasReaction, 'x' | 'y' | 'nodeId' | 'dx' | 'dy'>>) => void;
+  updateReaction: (id: string, patch: Partial<Pick<CanvasReaction, 'x' | 'y' | 'emoji' | 'nodeId' | 'dx' | 'dy'>>) => void;
   removeReaction: (id: string) => void;
   resolveComment: (id: string) => void;
   deleteComment: (id: string) => void;
@@ -822,8 +823,13 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       savedAt: Date.now(),
     })),
 
-  openDetails: (id) =>
-    set({ detailNodeId: id, selectedId: id, selectedIds: [id] }),
+  openDetails: (id, explicit = false) => {
+    const settings = useSettingsStore.getState();
+    if (explicit) settings.setDetailsAutoOpen(true);
+    // After the panel was dismissed, clicking or typing in a node only selects it; the expand button brings the panel back.
+    const show = explicit || settings.detailsAutoOpen;
+    set({ detailNodeId: show ? id : null, selectedId: id, selectedIds: [id] });
+  },
   closeDetails: () => set({ detailNodeId: null }),
   setDragging: (dragging) => set({ dragging }),
   markNodesTouched: (ids) =>
@@ -1431,6 +1437,13 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
         return false;
       }
       const model = MODEL_BY_ID[current.data.model ?? 'sd-turbo'] ?? MODELS[0];
+      // A local model whose files ComfyUI cannot see is not enabled yet: say what to install instead of failing mid-run.
+      if (model.install && !STATIC_DEMO && useSettingsStore.getState().installed[model.id] === false) {
+        lastError = `${model.name} is not installed yet.`;
+        get().updateNodeData(current.id, { status: 'error', error: lastError });
+        useSettingsStore.getState().openInstall(model.id);
+        return false;
+      }
       const incoming = live.edges
         .filter((edge) => edge.target === current.id)
         .map((edge) => live.nodes.find((item) => item.id === edge.source))
@@ -1495,6 +1508,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       const seenUrls = new Set<string>();
       const renderHistory = [
         { url: result.url, kind: result.kind, at: Date.now(), seed: result.seed },
+        ...(result.alternates ?? []).map((item) => ({ url: item.url, kind: item.kind, at: Date.now() - 1, seed: item.seed })),
         ...(current.data.outputUrl
           ? [{ url: current.data.outputUrl, kind: current.data.outputKind ?? result.kind, at: current.data.lastRun ?? Date.now(), seed: current.data.outputSeed }]
           : []),

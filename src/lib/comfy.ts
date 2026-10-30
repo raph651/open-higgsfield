@@ -39,13 +39,30 @@ function normalizeBaseUrl(value: string): string {
   return value.trim().replace(/\/+$/, '');
 }
 
+/**
+ * The per-visitor id header is for our own gateway (hosted demos), which scopes outputs by it. A stock ComfyUI started
+ * with --enable-cors-header rejects unknown request headers in its CORS preflight, so it must not be sent there:
+ * a cross-origin loopback address is a plain local ComfyUI.
+ */
+function sendsClientId(baseUrl: string): boolean {
+  try {
+    const url = new URL(baseUrl, window.location.href);
+    if (url.origin === window.location.origin) return true;
+    return !['localhost', '127.0.0.1', '[::1]', '::1'].includes(url.hostname);
+  } catch {
+    return true;
+  }
+}
+
 export class ComfyClient {
   readonly baseUrl: string;
   private readonly apiKey?: string;
+  private readonly clientIdHeader: boolean;
 
   constructor(config: ComfyConfig) {
     this.baseUrl = normalizeBaseUrl(config.baseUrl || 'http://127.0.0.1:8188');
     this.apiKey = config.apiKey?.trim() || undefined;
+    this.clientIdHeader = sendsClientId(this.baseUrl);
   }
 
   private headers(json = true): Record<string, string> {
@@ -58,7 +75,7 @@ export class ComfyClient {
   private async request(path: string, init: RequestInit = {}): Promise<Response> {
     let response: Response;
     const headers = new Headers(init.headers);
-    headers.set('x-osc-client', getClientId());
+    if (this.clientIdHeader) headers.set('x-osc-client', getClientId());
     try {
       response = await fetch(`${this.baseUrl}${path}`, { ...init, headers });
     } catch (error) {
@@ -92,6 +109,21 @@ export class ComfyClient {
       };
     } finally {
       clearTimeout(timer);
+    }
+  }
+
+  /** The file names a loader node offers (e.g. UNETLoader / unet_name), i.e. what is installed. null when ComfyUI will not say. */
+  async listChoices(node: string, field: string): Promise<string[] | null> {
+    try {
+      const response = await this.request(`/object_info/${encodeURIComponent(node)}`);
+      const info = await response.json();
+      const spec = info?.[node]?.input?.required?.[field] ?? info?.[node]?.input?.optional?.[field];
+      if (!Array.isArray(spec)) return null;
+      // older ComfyUI: [[...names]]; newer: ['COMBO', { options: [...names] }]
+      const list = Array.isArray(spec[0]) ? spec[0] : spec[0] === 'COMBO' ? spec[1]?.options : null;
+      return Array.isArray(list) ? list.map(String) : null;
+    } catch {
+      return null;
     }
   }
 
