@@ -27,13 +27,16 @@ export function ModelPicker({ value, onChange, variant = 'panel', className = ''
   const inputRef = useRef<HTMLInputElement>(null);
   const model = MODEL_BY_ID[value] ?? LISTED_MODELS[0];
 
+  // An image node only offers image models and a video node only video models (the Image/Video switch changes family).
+  const family = model.family;
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return LISTED_MODELS;
-    return LISTED_MODELS.filter((item) =>
+    const pool = LISTED_MODELS.filter((item) => item.family === family);
+    if (!q) return pool;
+    return pool.filter((item) =>
       `${item.name} ${item.blurb} ${item.family} ${item.runtime}`.toLowerCase().includes(q),
     );
-  }, [query]);
+  }, [query, family]);
 
   const openMenu = () => {
     const rect = triggerRef.current?.getBoundingClientRect();

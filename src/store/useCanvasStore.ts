@@ -77,11 +77,13 @@ interface WorkspaceState {
   openDetails: (id: string) => void;
   closeDetails: () => void;
   applyRemoteDoc: (doc: CanvasDoc) => void;
-  addComment: (x: number, y: number, text: string) => void;
+  addComment: (x: number, y: number, text: string) => string | undefined;
+  moveComment: (id: string, x: number, y: number) => void;
   addStroke: (stroke: CanvasStroke) => void;
   removeStroke: (id: string) => void;
   clearStrokes: () => void;
-  addReaction: (x: number, y: number, emoji: string) => void;
+  addReaction: (x: number, y: number, emoji: string, anchor?: { nodeId: string; dx: number; dy: number }) => void;
+  updateReaction: (id: string, patch: Partial<Pick<CanvasReaction, 'x' | 'y' | 'nodeId' | 'dx' | 'dy'>>) => void;
   removeReaction: (id: string) => void;
   resolveComment: (id: string) => void;
   deleteComment: (id: string) => void;
@@ -732,12 +734,21 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
     );
     get().showToast('Drawings cleared');
   },
-  addReaction: (x, y, emoji) => {
-    const reaction: CanvasReaction = { id: uid(), x, y, emoji, at: Date.now() };
+  addReaction: (x, y, emoji, anchor) => {
+    const reaction: CanvasReaction = { id: uid(), x, y, emoji, at: Date.now(), ...anchor };
     set((state) =>
       withActiveDoc(state, (doc) => ({
         ...doc,
         reactions: [...(doc.reactions ?? []), reaction],
+        updatedAt: Date.now(),
+      })),
+    );
+  },
+  updateReaction: (id, patch) => {
+    set((state) =>
+      withActiveDoc(state, (doc) => ({
+        ...doc,
+        reactions: (doc.reactions ?? []).map((reaction) => (reaction.id === id ? { ...reaction, ...patch } : reaction)),
         updatedAt: Date.now(),
       })),
     );
@@ -753,7 +764,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
   },
   addComment: (x, y, text) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed) return undefined;
     const comment: CanvasComment = {
       id: uid(),
       x,
@@ -766,6 +777,17 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       withActiveDoc(state, (doc) => ({ ...doc, comments: [...(doc.comments ?? []), comment] })),
     );
     get().showToast('Comment added');
+    return comment.id;
+  },
+
+  moveComment: (id, x, y) => {
+    set((state) =>
+      withActiveDoc(state, (doc) => ({
+        ...doc,
+        comments: (doc.comments ?? []).map((comment) => (comment.id === id ? { ...comment, x, y } : comment)),
+        updatedAt: Date.now(),
+      })),
+    );
   },
 
   resolveComment: (id) => {

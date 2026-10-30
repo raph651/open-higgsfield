@@ -177,7 +177,7 @@ export function Inspector() {
             <div className="inspector__section">
               <span className="section-label">Model</span>
               <div className="model-picker">
-                {LISTED_MODELS.map((item) => (
+                {LISTED_MODELS.filter((item) => item.family === model?.family).map((item) => (
                   <button
                     key={item.id}
                     className={node.data.model === item.id ? 'model-option model-option--active' : 'model-option'}

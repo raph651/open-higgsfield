@@ -100,6 +100,10 @@ export interface CanvasReaction {
   y: number;
   emoji: string;
   at: number;
+  /** Pinned to this node: (x, y) is then only the fallback, the node's position plus (dx, dy) is used. */
+  nodeId?: string;
+  dx?: number;
+  dy?: number;
 }
 
 export interface CanvasDoc {

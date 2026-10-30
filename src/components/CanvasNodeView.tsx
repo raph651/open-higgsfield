@@ -94,6 +94,13 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
   const pendingCaretRef = useRef<number | null>(null);
   const [mention, setMention] = useState<{ query: string; start: number; end: number } | null>(null);
   const [tableMenu, setTableMenu] = useState<'color' | 'more' | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const commitName = () => {
+    setRenaming(false);
+    const next = nameDraft.trim().slice(0, 24);
+    if (next !== (data.label ?? '')) updateNodeData(id, { label: next || undefined });
+  };
   const [quickNumberMenu, setQuickNumberMenu] = useState<'duration' | 'batch' | null>(null);
   const quickNumberSource = `node-number-${id}`;
   const [quickNumberPos, setQuickNumberPos] = useState<{ left: number; top: number; width: number } | null>(null);
@@ -394,7 +401,36 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                 {outputKind === 'video' && (
                   <span className="node__play"><Play size={12} fill="currentColor" /> LTX</span>
                 )}
-                <span className="node__media-tag">RENDER</span>
+                {renaming ? (
+                  <input
+                    className="node__media-tag node__media-tag--edit nodrag nopan"
+                    autoFocus
+                    maxLength={24}
+                    value={nameDraft}
+                    placeholder="RENDER"
+                    onChange={(event) => setNameDraft(event.target.value)}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
+                    onBlur={commitName}
+                    onKeyDown={(event) => {
+                      event.stopPropagation();
+                      if (event.key === 'Enter') commitName();
+                      if (event.key === 'Escape') setRenaming(false);
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="node__media-tag node__media-tag--name nodrag"
+                    title="Double-click to rename"
+                    onDoubleClick={(event) => {
+                      event.stopPropagation();
+                      setNameDraft(data.label ?? '');
+                      setRenaming(true);
+                    }}
+                  >
+                    {data.label || 'RENDER'}
+                  </span>
+                )}
               </div>
             ) : status === 'error' ? (
               <div className="node__render node__render--error">
