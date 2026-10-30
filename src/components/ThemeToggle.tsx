@@ -1,20 +1,28 @@
-import { Moon, Sun } from 'lucide-react';
-import { useThemeStore } from '../store/useThemeStore';
+import { Monitor, Moon, Sun } from 'lucide-react';
+import { useThemeStore, type ThemePreference } from '../store/useThemeStore';
+
+export const THEME_LABEL: Record<ThemePreference, string> = {
+  system: 'Auto (follows your system)',
+  light: 'Bright',
+  dark: 'Night',
+};
+
+export function ThemeIcon({ preference, size = 15 }: { preference: ThemePreference; size?: number }) {
+  return preference === 'system' ? <Monitor size={size} /> : preference === 'dark' ? <Moon size={size} /> : <Sun size={size} />;
+}
 
 export function ThemeToggle() {
-  const theme = useThemeStore((state) => state.theme);
+  const preference = useThemeStore((state) => state.preference);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
-  const night = theme === 'dark';
 
   return (
     <button
       className="canvas-icon theme-toggle"
       onClick={toggleTheme}
-      title={night ? 'Switch to bright theme' : 'Switch to night theme'}
-      aria-label={night ? 'Switch to bright theme' : 'Switch to night theme'}
-      aria-pressed={night}
+      title={`Theme: ${THEME_LABEL[preference]}. Click to change.`}
+      aria-label={`Theme: ${THEME_LABEL[preference]}. Click to change.`}
     >
-      {night ? <Sun size={15} /> : <Moon size={15} />}
+      <ThemeIcon preference={preference} />
     </button>
   );
 }

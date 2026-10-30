@@ -40,8 +40,6 @@ import {
   Search,
   Send,
   Share2,
-  Moon,
-  Sun,
   Sparkles,
   Redo2,
   Trash2,
@@ -64,6 +62,7 @@ import { ProviderBadge } from './ProviderBadge';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useRoomStore } from '../store/useRoomStore';
 import { useThemeStore } from '../store/useThemeStore';
+import { THEME_LABEL, ThemeIcon } from './ThemeToggle';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ACCENTS, getAccent } from '../lib/theme';
 import { fileToNodeMedia } from '../lib/media';
@@ -168,7 +167,7 @@ function EditorCanvas() {
   const connection = useSettingsStore((state) => state.connection);
   const useComfy = useSettingsStore((state) => state.useComfy);
   const openConnection = useSettingsStore((state) => state.openConnection);
-  const theme = useThemeStore((state) => state.theme);
+  const themePreference = useThemeStore((state) => state.preference);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const ignoreSelectionRef = useRef(false);
   const renderedEdges = useMemo(
@@ -1475,8 +1474,8 @@ function EditorCanvas() {
                         setAccountOpen(false);
                       }}
                     >
-                      {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-                      {theme === 'dark' ? 'Bright theme' : 'Night theme'}
+                      <ThemeIcon preference={themePreference} size={14} />
+                      Theme: {themePreference === 'system' ? 'Auto' : THEME_LABEL[themePreference]}
                     </button>
                     <span className="account-menu__label">Accent</span>
                     <div className="account-menu__swatches">

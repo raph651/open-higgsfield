@@ -17,6 +17,7 @@ All notable changes to Open Source Canvas. Newest first. The format follows [Kee
 - **The side panel stays closed once you dismiss it.** Clicking or typing in a node no longer reopens it; the expand button at the bottom right of the node brings it back.
 
 ### Changed
+- **The theme follows your system by default.** The app starts in your system's light or dark setting and switches with it. The theme button cycles Auto, Bright and Night; choosing Bright or Night pins it. A choice saved by an earlier version is kept.
 - **Credits are gone.** Nothing is metered when you run locally, so the credit counter, the cost on the Generate button and the "Needs N credits" block are removed. The Generate button and the Models page show a run-time estimate instead: a rough guide for a model until you have run it, then the time of your last render on your machine.
 - **The Models page is simpler.** One title, grouped Local and API, the run-time estimate and a single action per model ("Use model", or "Install" when ComfyUI cannot find its files). The developer footer is replaced by a link to the guide for adding another local model.
 

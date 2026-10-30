@@ -8,11 +8,14 @@
       (function () {
         try {
           var saved = JSON.parse(localStorage.getItem('framegraph-theme') || 'null');
-          var theme = saved && saved.state && saved.state.theme === 'dark' ? 'dark' : 'light';
+          var pref = (saved && saved.state && (saved.state.preference || saved.state.theme)) || 'system';
+          var theme = pref === 'system'
+            ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : (pref === 'dark' ? 'dark' : 'light');
           document.documentElement.dataset.theme = theme;
           if (theme === 'dark') document.querySelector('meta[name="theme-color"]').setAttribute('content', '#07090c');
         } catch (e) {
-          document.documentElement.dataset.theme = 'light';
+          document.documentElement.dataset.theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
       })();
     </script>
