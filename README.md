@@ -11,6 +11,7 @@ also reach hosted models through ComfyUI's partner (API) nodes.
 - Local models that work out of the box: **SD-Turbo** (images) and **LTX-Video 2B** (video)
 - Hosted models via ComfyUI partner nodes: **LTX-2.5**, **Seedream 5.0 Pro** and others (see [API models](#api-models))
 - License: MIT (the app). Model weights have their own licenses, see [Model licenses](#model-licenses)
+- **Try it in your browser:** [raph651.github.io/open-source-canvas](https://raph651.github.io/open-source-canvas/). Demo only: ComfyUI is offline there, so you can edit canvases and press Run but results are placeholder artwork. Run the app locally for real generation.
 
 <p align="center">
   <a href="docs/media/demo-1080p-v3.mp4"><img src="docs/media/demo-sharp-v3.gif" alt="Open Source Canvas demo: one prompt, one film" width="720"></a>
@@ -206,6 +207,7 @@ export one.
 | `npm run dev` | Vite dev server on port 4173 |
 | `npm run build` | type check and production build into `dist/` |
 | `npm run preview` | preview the production build |
+| `npm run build:pages` | static demo build for GitHub Pages (no ComfyUI, mock provider, notice strip); set `VITE_BASE=/<repo>/` |
 | `node server/app.mjs` | serve `dist/` and proxy ComfyUI |
 | `npm run room` | collaboration room on port 4180 (in-memory, last write wins, no auth: demo only) |
 

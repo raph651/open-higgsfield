@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ComfyClient } from '../lib/comfy';
+import { STATIC_DEMO } from '../lib/staticDemo';
 import type { AccentId } from '../lib/theme';
 
 export type ConnectionStatus = 'unknown' | 'checking' | 'online' | 'offline' | 'disabled';
@@ -43,12 +44,12 @@ export const useSettingsStore = create<SettingsState>()(
     (set, get) => ({
       baseUrl: DEFAULT_BASE_URL,
       apiKey: '',
-      useComfy: true,
+      useComfy: !STATIC_DEMO,
       checkpoint: 'sd_turbo.safetensors',
       videoCheckpoint: 'ltxv-2b-0.9.8-distilled-fp8.safetensors',
       textEncoder: 't5xxl_fp8_e4m3fn.safetensors',
       videoDraft: false,
-      connection: 'unknown',
+      connection: STATIC_DEMO ? 'disabled' : 'unknown',
       connectionError: null,
       serverVersion: null,
       device: null,
@@ -59,7 +60,11 @@ export const useSettingsStore = create<SettingsState>()(
 
       setBaseUrl: (baseUrl) => set({ baseUrl }),
       setApiKey: (apiKey) => set({ apiKey }),
-      setUseComfy: (useComfy) => set({ useComfy, connection: useComfy ? 'unknown' : 'disabled' }),
+      // The static demo has no ComfyUI to reach; the toggle stays off.
+      setUseComfy: (useComfy) => {
+        if (STATIC_DEMO) return;
+        set({ useComfy, connection: useComfy ? 'unknown' : 'disabled' });
+      },
       setCheckpoint: (checkpoint) => set({ checkpoint }),
       setVideoCheckpoint: (videoCheckpoint) => set({ videoCheckpoint }),
       setTextEncoder: (textEncoder) => set({ textEncoder }),
@@ -107,6 +112,11 @@ export const useSettingsStore = create<SettingsState>()(
         const state = (persisted ?? {}) as Record<string, unknown>;
         return (version < 2 ? { ...state, videoDraft: false } : state) as any;
       },
+      merge: (persisted, current) => ({
+        ...current,
+        ...((persisted ?? {}) as Partial<SettingsState>),
+        ...(STATIC_DEMO ? { useComfy: false, connection: 'disabled' as const } : {}),
+      }),
       partialize: (state) => ({
         baseUrl: state.baseUrl,
         useComfy: state.useComfy,

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo · Open Source Canvas</title>
+<meta name="description" content="A 25-second tour of Open Source Canvas.">
+<style>
+  :root { --bg:#f3f4ee; --text:#0e120b; --muted:#555b4d; --line:rgba(14,18,11,.14); --accent:#d7ff3f; --accent-ink:#0b0f0a; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b0e09; --text:#f3f1e8; --muted:#a3a99a; --line:rgba(255,255,255,.14); --card:#12160f; } }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 18px; }
+  .brand { color: var(--text); font-weight: 700; text-decoration: none; }
+  .note { margin: 0 0 16px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--muted); font-size: 14px; }
+  .note b { color: var(--text); }
+  .player { background: #000; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 999px; font-weight: 650; font-size: 15px; text-decoration: none; border: 1px solid var(--line); color: var(--text); background: var(--card); }
+  .btn:hover { border-color: var(--text); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  @media (max-width: 520px) { .btn { flex: 1 1 100%; justify-content: center; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <a class="brand" href="../">Open Source Canvas</a>
+    <a class="btn" href="../">Open the demo canvas &rarr;</a>
+  </header>
+  <p class="note"><b>Demo only.</b> This video was made with real ComfyUI and API models. The online canvas cannot generate: it has no ComfyUI behind it. Run the app on your own computer to make the same thing.</p>
+  <div class="player">
+    <video controls playsinline preload="metadata">
+      <source src="open-source-canvas-demo.mp4" type="video/mp4">
+      Your browser cannot play this video. <a href="open-source-canvas-demo.mp4" download>Download it instead</a>.
+    </video>
+  </div>
+  <div class="actions">
+    <a class="btn primary" href="open-source-canvas-demo.mp4" download>Download MP4 &middot; 1080p</a>
+    <a class="btn" href="https://github.com/raph651/open-source-canvas#quick-start" target="_blank" rel="noreferrer">Run it locally</a>
+  </div>
+</main>
+</body>
+</html>
