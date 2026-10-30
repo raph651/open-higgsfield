@@ -1,6 +1,6 @@
 import { MarkerType, type Edge } from '@xyflow/react';
 import type { CanvasNode, ModelDef, ModelId, NodeKind, TemplateDef } from './types';
-import { asset } from './lib/staticDemo';
+import { asset, STATIC_DEMO } from './lib/staticDemo';
 
 export const MODELS: ModelDef[] = [
   {
@@ -94,6 +94,12 @@ export const MODEL_BY_ID: Record<ModelId, ModelDef> = Object.fromEntries(
 ) as Record<ModelId, ModelDef>;
 
 export const OPEN_MODELS = MODELS.filter((model) => model.runtime === 'comfyui');
+
+/**
+ * What the model pickers offer. Normally only the models that run through a local ComfyUI. The online demo has no
+ * ComfyUI at all and draws placeholder artwork for everything, so it lists every model, API ones included.
+ */
+export const LISTED_MODELS = STATIC_DEMO ? MODELS : OPEN_MODELS;
 
 export const NODE_META: Record<
   NodeKind,

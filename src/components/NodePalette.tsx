@@ -6,7 +6,7 @@ import {
   StickyNote,
   Type,
 } from 'lucide-react';
-import { OPEN_MODELS } from '../data';
+import { LISTED_MODELS } from '../data';
 import type { ModelId, NodeKind } from '../types';
 
 const NODE_BUTTONS: Array<{ kind: NodeKind; label: string; hint: string; icon: typeof Type }> = [
@@ -53,7 +53,7 @@ export function NodePalette({ onAdd }: NodePaletteProps) {
       <div className="palette__section">
         <span className="section-label">Model adapters</span>
         <div className="palette__models">
-          {OPEN_MODELS.map((model) => (
+          {LISTED_MODELS.map((model) => (
             <button
               key={model.id}
               className="palette-model"

@@ -7,7 +7,7 @@ import {
   Image as ImageIcon,
   Search,
 } from 'lucide-react';
-import { MODEL_BY_ID, OPEN_MODELS } from '../data';
+import { MODEL_BY_ID, LISTED_MODELS } from '../data';
 import type { ModelId } from '../types';
 
 interface ModelPickerProps {
@@ -25,12 +25,12 @@ export function ModelPicker({ value, onChange, variant = 'panel', className = ''
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const model = MODEL_BY_ID[value] ?? OPEN_MODELS[0];
+  const model = MODEL_BY_ID[value] ?? LISTED_MODELS[0];
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return OPEN_MODELS;
-    return OPEN_MODELS.filter((item) =>
+    if (!q) return LISTED_MODELS;
+    return LISTED_MODELS.filter((item) =>
       `${item.name} ${item.blurb} ${item.family} ${item.runtime}`.toLowerCase().includes(q),
     );
   }, [query]);
