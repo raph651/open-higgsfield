@@ -5,6 +5,7 @@ All notable changes to Open Source Canvas. Newest first. The format follows [Kee
 ## [Unreleased]
 
 ### Fixed
+- **The app can connect to a stock ComfyUI again.** It sent a custom request header that ComfyUI's `--enable-cors-header` setup rejects, so the page showed "ComfyUI offline" even with ComfyUI running. The header is now only sent to our own gateway or a remote server.
 - **Reactions** now go onto the selected node. Press Reactions, pick an emoji, and it is placed on the node's border. Further reactions wrap around the node clockwise.
 - **Reactions and comments can be dragged.** A reaction dropped on a node pins to it and follows it when the node moves; dropped on empty canvas it floats free.
 - **Comments** open in a small card next to their pin (instead of the top-right panel), including right after you leave one. The pin and the new-comment box can be dragged.
