@@ -787,7 +787,7 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .metric-row span { display: block; color: var(--muted-2); font-family: var(--font-mono); font-size: 8px; text-transform: uppercase; letter-spacing: .07em; }
 
 .output-preview { border: 1px solid var(--line); border-radius: 11px; overflow: hidden; background: var(--bg-2); }
-.output-preview img { width: 100%; height: 168px; object-fit: cover; }
+.output-preview img { display: block; width: 100%; height: auto; max-height: min(62vh, 560px); object-fit: contain; }
 .output-preview__bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 8px 7px 10px; border-top: 1px solid var(--line); color: var(--muted-2); font-family: var(--font-mono); font-size: 8px; }
 
 .upload-zone { width: 100%; min-height: 128px; border: 1px dashed rgba(var(--ov-rgb),.18); border-radius: 11px; background: rgba(var(--ov-rgb),.02); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; color: var(--muted); overflow: hidden; margin-bottom: 12px; }
@@ -1182,7 +1182,7 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 }
 
 .node__media video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.output-preview video { width: 100%; height: 168px; object-fit: cover; display: block; }
+.output-preview video { display: block; width: 100%; height: auto; max-height: min(62vh, 560px); object-fit: contain; }
 .canvas-card__art video { width: 100%; height: 100%; object-fit: cover; }
 
 .model-option > span:nth-child(2) { flex: 1; min-width: 0; }
@@ -1470,7 +1470,7 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .generation-panel__actions { flex: 0 0 auto; padding: 10px 16px; border-top: 1px solid var(--line); background: rgba(var(--surface-rgb),.72); }
 .gen-cost { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding-left: 9px; border-left: 1px solid rgba(10,14,8,.2); font-family: var(--font-mono); font-size: 9px; }
 .gen-output { margin-top: 13px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--bg-2); }
-.gen-output img, .gen-output video { width: 100%; height: 170px; object-fit: cover; display: block; }
+.gen-output img, .gen-output video { display: block; width: 100%; height: auto; max-height: min(62vh, 560px); object-fit: contain; }
 .gen-output__bar { display: flex; align-items: center; justify-content: space-between; padding: 7px 9px; border-top: 1px solid var(--line); color: var(--muted-2); font-family: var(--font-mono); font-size: 8px; }
 .gen-output__bar a { color: var(--lime); }
 .generation-panel__foot { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); }
@@ -4738,3 +4738,8 @@ html[data-demo='static'] .editor--canvas { height: 100%; min-height: 0; }
 .node__meta-line { padding: 6px 2px 0; color: var(--muted); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .02em; }
 /* A reference with a picture needs no dashed drop-zone outline */
 .upload-zone--filled { border: 0; background: none; }
+
+/* A reference clip on a node: the play icon says it is a video */
+.hover-video { position: absolute; inset: 0; }
+.hover-video video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.video-play { position: absolute; right: 7px; bottom: 7px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(var(--ov-rgb), .14); background: rgba(var(--surface-rgb), .66); backdrop-filter: blur(8px); color: var(--text); pointer-events: none; }

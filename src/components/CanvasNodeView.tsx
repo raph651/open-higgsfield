@@ -27,7 +27,7 @@ import { useCanvasStore } from '../store/useCanvasStore';
 import { fileToNodeMedia } from '../lib/media';
 import type { CanvasNode, ModelId } from '../types';
 import { Artwork } from './Artwork';
-import { VideoStill } from './VideoStill';
+import { HoverVideo } from './VideoStill';
 import { Logo } from './Logo';
 import { ModelPicker } from './ModelPicker';
 import { GenerationTypePicker, type GenerationFamily } from './GenerationTypePicker';
@@ -708,7 +708,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
               {data.previewUrl ? (
                 <>
                   {isVideo ? (
-                    <VideoStill src={data.previewUrl} />
+                    <HoverVideo src={data.previewUrl} />
                   ) : (
                     <img src={data.previewUrl} alt={data.label ?? 'Reference'} draggable={false} />
                   )}

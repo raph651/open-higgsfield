@@ -456,7 +456,7 @@ function buildRecreate() {
     title: 'LTX-2.5',
     model: 'ltx-2.5',
     prompt:
-      'Pop-art product film in a bright, colourful studio. A young man in a blue shirt and a cap cracks open an aluminium soda can. A controlled slow-motion ring of orange fizz, ice crystals and citrus slices lifts gently around the can and orbits past his head, never covering his face. Smooth camera, saturated candy colours.',
+      'Recreate the product film from @Source as a new take: @Avatar, in a blue shirt and a cap, cracks open the aluminium soda can from @Product. A controlled slow-motion ring of orange fizz, ice crystals and citrus slices lifts gently around the can and orbits past his head, never covering his face. Keep the camera move and pacing of @Source. Bright pop-art studio, saturated candy colours.',
     resolution: '1080p',
     aspect: '16:9',
     duration: 6,
