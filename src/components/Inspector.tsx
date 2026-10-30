@@ -312,7 +312,6 @@ export function Inspector() {
 
         {node.data.kind === 'reference' && (
           <div className="inspector__section">
-            <span className="section-label">Anchor</span>
             <button className={`upload-zone ${node.data.previewUrl ? 'upload-zone--filled' : ''}`} onClick={() => fileRef.current?.click()}>
               {node.data.previewUrl ? (
                 node.data.mediaKind === 'video' ? (

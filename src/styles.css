@@ -1578,8 +1578,6 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 .node__upload strong { color: var(--text); font-size: 10.5px; font-weight: 550; }
 .node__upload small { color: var(--muted-2); font-family: var(--font-mono); font-size: 7.5px; letter-spacing: .03em; }
 .node__upload:hover { background: rgba(var(--accent-soft-rgb),.08); border-color: rgba(var(--accent-soft-rgb),.48); }
-.node__replace { position: absolute; top: 7px; right: 7px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; border: 1px solid rgba(var(--ov-rgb),.14); border-radius: 100px; background: rgba(var(--surface-rgb),.7); color: var(--text); font-family: var(--font-mono); font-size: 7px; letter-spacing: .04em; backdrop-filter: blur(8px); }
-.node__replace:hover { background: rgba(var(--accent-rgb),.2); }
 
 
 .node--group {

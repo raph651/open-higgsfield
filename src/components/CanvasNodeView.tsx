@@ -21,7 +21,6 @@ import {
   Plus,
   Sparkles,
   Ungroup,
-  Upload,
 } from 'lucide-react';
 import { ASPECTS, MODELS, MODEL_BY_ID, NODE_META } from '../data';
 import { useCanvasStore } from '../store/useCanvasStore';
@@ -713,15 +712,6 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                   ) : (
                     <img src={data.previewUrl} alt={data.label ?? 'Reference'} draggable={false} />
                   )}
-                  <button
-                    className="node__replace nodrag"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      fileRef.current?.click();
-                    }}
-                  >
-                    <Upload size={11} /> Replace
-                  </button>
                 </>
               ) : (
                 <button
