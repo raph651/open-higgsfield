@@ -38,6 +38,7 @@ import { ToolPicker } from './ToolPicker';
 import { buildMentionGroups, buildMentionLookup, mentionHandle, PROMPT_PLACEHOLDER, type MentionItem } from '../lib/mentions';
 import { announcePopover, subscribePopoverOpen } from '../lib/popoverBus';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { aspectLabel } from '../lib/format';
 import { runTimeLabel } from '../lib/runTime';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -107,6 +108,8 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
   const [restingHeight, setRestingHeight] = useState<number | null>(null);
   // The prompt box only keeps the mouse wheel for itself when it has more text than fits; otherwise the wheel pans the canvas.
   const [promptOverflows, setPromptOverflows] = useState(false);
+  // The real pixel size of the output once it has loaded, for the caption under it.
+  const [outputSize, setOutputSize] = useState<{ url: string; width: number; height: number } | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const commitName = () => {
@@ -743,17 +746,38 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
             <div className="node__media node__media--output">
               {outputUrl ? (
                 outputKind === 'video' ? (
-                  <video src={outputUrl} autoPlay muted loop playsInline />
+                  <video
+                    src={outputUrl}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    onLoadedMetadata={(event) => setOutputSize({ url: outputUrl, width: event.currentTarget.videoWidth, height: event.currentTarget.videoHeight })}
+                  />
                 ) : (
-                  <img src={outputUrl} alt="Final output" draggable={false} />
+                  <img
+                    src={outputUrl}
+                    alt="Final output"
+                    draggable={false}
+                    onLoad={(event) => setOutputSize({ url: outputUrl, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
+                  />
                 )
               ) : (
                 <div className="node__render node__render--quiet">
                   <strong>No output</strong>
                 </div>
               )}
-              {outputUrl && <span className="node__media-tag">DELIVERY</span>}
+              {outputUrl && (
+                <span className="node__media-tag node__media-tag--icon" title={outputKind === 'video' ? 'Video' : 'Image'} aria-label={outputKind === 'video' ? 'Video' : 'Image'}>
+                  {outputKind === 'video' ? <Clapperboard size={12} /> : <ImageIcon size={12} />}
+                </span>
+              )}
             </div>
+            {outputUrl && outputSize?.url === outputUrl && outputSize.width > 0 && (
+              <div className="node__meta-line" title="Aspect ratio and size in pixels">
+                {aspectLabel(outputSize.width, outputSize.height)} · {outputSize.width} × {outputSize.height}
+              </div>
+            )}
           </>
         )}
 

@@ -4733,3 +4733,10 @@ html[data-demo='static'] .editor--canvas { height: 100%; min-height: 0; }
 .canvas-stage.is-placing-reaction .reaction-palette, .canvas-stage.is-placing-reaction .reaction-palette *,
 .canvas-stage.is-placing-reaction .canvas-dock, .canvas-stage.is-placing-reaction .canvas-dock * { cursor: pointer !important; }
 .reaction-cursor { position: fixed; z-index: 120; pointer-events: none; transform: translate(-50%, -50%); font-size: 27px; line-height: 1; filter: drop-shadow(0 8px 14px rgba(var(--shadow-rgb), calc(.2 * var(--shadow-k)))); }
+
+/* Output node: the whole result at its own shape, and what it is */
+.node--output .node__media { height: auto; min-height: 90px; }
+.node--output .node__media img, .node--output .node__media video { display: block; width: 100%; height: auto; max-height: 420px; object-fit: contain; }
+.node__meta-line { padding: 6px 2px 0; color: var(--muted); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .02em; }
+/* A reference with a picture needs no dashed drop-zone outline */
+.upload-zone--filled { border: 0; background: none; }

@@ -313,7 +313,7 @@ export function Inspector() {
         {node.data.kind === 'reference' && (
           <div className="inspector__section">
             <span className="section-label">Anchor</span>
-            <button className="upload-zone" onClick={() => fileRef.current?.click()}>
+            <button className={`upload-zone ${node.data.previewUrl ? 'upload-zone--filled' : ''}`} onClick={() => fileRef.current?.click()}>
               {node.data.previewUrl ? (
                 node.data.mediaKind === 'video' ? (
                   <video src={node.data.previewUrl} controls autoPlay muted loop playsInline />
