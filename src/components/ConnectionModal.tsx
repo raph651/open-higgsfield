@@ -9,6 +9,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { STATIC_DEMO } from '../lib/staticDemo';
 import { useSettingsStore } from '../store/useSettingsStore';
 
 export function ConnectionModal() {
@@ -89,13 +90,18 @@ export function ConnectionModal() {
           <label className="switch-row">
             <span>
               <strong>Use ComfyUI</strong>
-              <small>Turn off to preview the canvas with the deterministic mock provider.</small>
+              <small>
+                {STATIC_DEMO
+                  ? 'Locked off in this online demo. Clone the repo and run it locally to connect your own ComfyUI.'
+                  : 'Turn off to preview the canvas with the deterministic mock provider.'}
+              </small>
             </span>
             <button
               className={`switch ${useComfy ? 'switch--on' : ''}`}
               onClick={() => setUseComfy(!useComfy)}
               role="switch"
               aria-checked={useComfy}
+              disabled={STATIC_DEMO}
             >
               <span />
             </button>

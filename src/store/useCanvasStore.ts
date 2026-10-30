@@ -11,6 +11,7 @@ import { create } from 'zustand';
 import { MODELS, MODEL_BY_ID, NODE_META, TEMPLATES, makeEdge } from '../data';
 import { getRuntimeProvider, type Provider } from '../lib/providers';
 import { mentionHandle } from '../lib/mentions';
+import { STATIC_DEMO } from '../lib/staticDemo';
 import { useSettingsStore } from './useSettingsStore';
 import type {
   CanvasDoc,
@@ -1351,6 +1352,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       return;
     }
     const settings = useSettingsStore.getState();
+    if (STATIC_DEMO) state.showToast('Demo only: this draws placeholder artwork. Run locally for real generations.');
     if (settings.useComfy && settings.connection !== 'online') {
       state.showToast('ComfyUI is not connected. Open the connection panel or switch to demo mode.');
       settings.openConnection();

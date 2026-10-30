@@ -1,5 +1,6 @@
 import { MarkerType, type Edge } from '@xyflow/react';
 import type { CanvasNode, ModelDef, ModelId, NodeKind, TemplateDef } from './types';
+import { asset } from './lib/staticDemo';
 
 export const MODELS: ModelDef[] = [
   {
@@ -190,7 +191,7 @@ function buildProductFilm() {
       'Product commercial. The can levitates and slowly spins in a pastel studio. A slow-motion ring of splash, floating ice cubes and citrus slices orbits it, macro condensation droplets, glossy reflections; the camera pushes in with a smooth motion-control move.',
     duration: 6,
     cost: 12,
-    outputUrl: '/templates/product-film/preview.mp4',
+    outputUrl: asset('templates/product-film/preview.mp4'),
     outputKind: 'video',
     status: 'done',
   });
@@ -224,7 +225,7 @@ function buildMotionStudy() {
     aspect: '16:9',
     duration: 5,
     cost: 12,
-    outputUrl: '/templates/motion-study/preview.mp4',
+    outputUrl: asset('templates/motion-study/preview.mp4'),
     outputKind: 'video',
     status: 'done',
   });
@@ -267,7 +268,7 @@ function buildCharacterLoop() {
     aspect: '16:9',
     duration: 6,
     cost: 12,
-    outputUrl: '/templates/character-loop/preview.mp4',
+    outputUrl: asset('templates/character-loop/preview.mp4'),
     outputKind: 'video',
     status: 'done',
   });
@@ -289,19 +290,19 @@ function buildObjectsSwap() {
   const actor = node(`${p}-actor`, 'reference', 20, 80, {
     title: 'Actor',
     label: 'ACTOR',
-    previewUrl: '/templates/objects-swap/actor.jpg',
+    previewUrl: asset('templates/objects-swap/actor.jpg'),
     mediaKind: 'image',
   });
   const car = node(`${p}-car`, 'reference', 20, 360, {
     title: 'Car',
     label: 'CAR',
-    previewUrl: '/templates/objects-swap/car.jpg',
+    previewUrl: asset('templates/objects-swap/car.jpg'),
     mediaKind: 'image',
   });
   const source = node(`${p}-source`, 'reference', 20, 640, {
     title: 'Scene',
     label: 'SCENE',
-    previewUrl: '/templates/objects-swap/scene.jpg',
+    previewUrl: asset('templates/objects-swap/scene.jpg'),
     mediaKind: 'image',
   });
   const swap = node(`${p}-swap`, 'model', 420, 260, {
@@ -313,7 +314,7 @@ function buildObjectsSwap() {
     aspect: '16:9',
     duration: 6,
     cost: 12,
-    outputUrl: '/templates/objects-swap/generation.mp4',
+    outputUrl: asset('templates/objects-swap/generation.mp4'),
     outputKind: 'video',
     status: 'done',
   });
@@ -335,19 +336,19 @@ function buildMarketingStudio() {
   const reference = node(`${p}-reference`, 'reference', 20, 80, {
     title: 'Scene reference',
     label: 'REFERENCE',
-    previewUrl: '/templates/marketing-studio/reference.jpg',
+    previewUrl: asset('templates/marketing-studio/reference.jpg'),
     mediaKind: 'image',
   });
   const product = node(`${p}-product`, 'reference', 20, 360, {
     title: 'Product',
     label: 'PRODUCT',
-    previewUrl: '/templates/marketing-studio/product.jpg',
+    previewUrl: asset('templates/marketing-studio/product.jpg'),
     mediaKind: 'image',
   });
   const avatar = node(`${p}-avatar`, 'reference', 20, 640, {
     title: 'Avatar',
     label: 'AVATAR',
-    previewUrl: '/templates/marketing-studio/avatar.jpg',
+    previewUrl: asset('templates/marketing-studio/avatar.jpg'),
     mediaKind: 'image',
   });
   const image = node(`${p}-image`, 'model', 420, 260, {
@@ -358,7 +359,7 @@ function buildMarketingStudio() {
     resolution: '2k',
     aspect: '3:4',
     cost: 5,
-    outputUrl: '/templates/marketing-studio/output.jpg',
+    outputUrl: asset('templates/marketing-studio/output.jpg'),
     outputKind: 'image',
     status: 'done',
   });
@@ -380,19 +381,19 @@ function buildRecreate() {
   const source = node(`${p}-source`, 'reference', 20, 80, {
     title: 'Source clip',
     label: 'SOURCE',
-    previewUrl: '/templates/recreate/source.mp4',
+    previewUrl: asset('templates/recreate/source.mp4'),
     mediaKind: 'video',
   });
   const product = node(`${p}-product`, 'reference', 20, 360, {
     title: 'Product',
     label: 'PRODUCT',
-    previewUrl: '/templates/recreate/product.jpg',
+    previewUrl: asset('templates/recreate/product.jpg'),
     mediaKind: 'image',
   });
   const avatar = node(`${p}-avatar`, 'reference', 20, 640, {
     title: 'Avatar',
     label: 'AVATAR',
-    previewUrl: '/templates/recreate/avatar.jpg',
+    previewUrl: asset('templates/recreate/avatar.jpg'),
     mediaKind: 'image',
   });
   const video = node(`${p}-video`, 'model', 420, 260, {
@@ -404,7 +405,7 @@ function buildRecreate() {
     aspect: '16:9',
     duration: 6,
     cost: 12,
-    outputUrl: '/templates/recreate/preview.mp4',
+    outputUrl: asset('templates/recreate/preview.mp4'),
     outputKind: 'video',
     status: 'done',
   });
@@ -428,9 +429,9 @@ export const TEMPLATES: TemplateDef[] = [
     tag: 'Commerce',
     accent: '#ff7a3d',
     previewSeed: 'product film can',
-    previewUrl: '/templates/product-film/preview.mp4',
+    previewUrl: asset('templates/product-film/preview.mp4'),
     previewKind: 'video',
-    previewPoster: '/templates/product-film/poster.jpg',
+    previewPoster: asset('templates/product-film/poster.jpg'),
     nodeCount: 4,
     build: buildProductFilm,
   },
@@ -441,9 +442,9 @@ export const TEMPLATES: TemplateDef[] = [
     tag: 'Motion',
     accent: '#8bd3ff',
     previewSeed: 'ribbon of light',
-    previewUrl: '/templates/motion-study/preview.mp4',
+    previewUrl: asset('templates/motion-study/preview.mp4'),
     previewKind: 'video',
-    previewPoster: '/templates/motion-study/poster.jpg',
+    previewPoster: asset('templates/motion-study/poster.jpg'),
     nodeCount: 4,
     build: buildMotionStudy,
   },
@@ -454,9 +455,9 @@ export const TEMPLATES: TemplateDef[] = [
     tag: 'Character',
     accent: '#ffb27a',
     previewSeed: 'mira doorway sodium',
-    previewUrl: '/templates/character-loop/preview.mp4',
+    previewUrl: asset('templates/character-loop/preview.mp4'),
     previewKind: 'video',
-    previewPoster: '/templates/character-loop/poster.jpg',
+    previewPoster: asset('templates/character-loop/poster.jpg'),
     nodeCount: 5,
     build: buildCharacterLoop,
   },
@@ -467,9 +468,9 @@ export const TEMPLATES: TemplateDef[] = [
     tag: 'References',
     accent: '#ff9bb5',
     previewSeed: 'objects swap actor car',
-    previewUrl: '/templates/objects-swap/preview.mp4',
+    previewUrl: asset('templates/objects-swap/preview.mp4'),
     previewKind: 'video',
-    previewPoster: '/templates/objects-swap/preview.jpg',
+    previewPoster: asset('templates/objects-swap/preview.jpg'),
     nodeCount: 5,
     build: buildObjectsSwap,
   },
@@ -480,7 +481,7 @@ export const TEMPLATES: TemplateDef[] = [
     tag: 'Marketing',
     accent: '#8bd3ff',
     previewSeed: 'marketing studio product talent',
-    previewUrl: '/templates/marketing-studio/output.jpg',
+    previewUrl: asset('templates/marketing-studio/output.jpg'),
     previewKind: 'image',
     nodeCount: 5,
     build: buildMarketingStudio,
@@ -492,9 +493,9 @@ export const TEMPLATES: TemplateDef[] = [
     tag: 'Video',
     accent: '#ff8aa5',
     previewSeed: 'recreate source clip avatar product',
-    previewUrl: '/templates/recreate/preview.mp4',
+    previewUrl: asset('templates/recreate/preview.mp4'),
     previewKind: 'video',
-    previewPoster: '/templates/recreate/poster.jpg',
+    previewPoster: asset('templates/recreate/poster.jpg'),
     nodeCount: 5,
     build: buildRecreate,
   },

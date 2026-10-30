@@ -7,7 +7,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "room": "node server/room.mjs"
+    "room": "node server/room.mjs",
+    "build:pages": "VITE_STATIC_DEMO=1 npm run build && node scripts/pages-extras.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
