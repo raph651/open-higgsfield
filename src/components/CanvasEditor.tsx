@@ -240,7 +240,6 @@ function EditorCanvas() {
       placed += 1;
     }
     if (placed) setTool('select');
-    else showToast('Click the canvas or a node to place it');
   };
 
   const insertAnnotation = (
@@ -382,6 +381,8 @@ function EditorCanvas() {
   const [reactionEmoji, setReactionEmoji] = useState('💜');
   const [reactionPaletteOpen, setReactionPaletteOpen] = useState(false);
   const [reactionMenuId, setReactionMenuId] = useState<string | null>(null);
+  // Where the armed reaction rides along with the pointer (null when the pointer is off the canvas or over the dock).
+  const [reactionGhost, setReactionGhost] = useState<{ x: number; y: number } | null>(null);
   // Live position of a reaction / comment pin / new-comment box while it is being dragged (committed on release).
   const [pinDrag, setPinDrag] = useState<{ kind: 'reaction' | 'comment' | 'draft'; id: string; x: number; y: number } | null>(null);
   const pinGesture = useRef<{
@@ -910,7 +911,13 @@ function EditorCanvas() {
   return (
     <div className={`editor editor--canvas ${dragging ? 'is-node-dragging' : ''}`}>
       <div
-        className={`canvas-stage ${dragActive ? 'is-drag-active' : ''} ${tool === 'erase' ? 'is-erasing' : ''}`}
+        className={`canvas-stage ${dragActive ? 'is-drag-active' : ''} ${tool === 'erase' ? 'is-erasing' : ''} ${tool === 'reaction' ? 'is-placing-reaction' : ''}`}
+        onPointerMove={(event) => {
+          if (tool !== 'reaction') return;
+          const overChrome = (event.target as Element | null)?.closest?.('.reaction-palette, .canvas-dock');
+          setReactionGhost(overChrome ? null : { x: event.clientX, y: event.clientY });
+        }}
+        onPointerLeave={() => setReactionGhost(null)}
         onClickCapture={(event) => {
           if (!(event.target instanceof Element) || !event.target.classList.contains('react-flow__pane')) return;
           if (!selectedId && !canvasMenu) return;
@@ -1245,11 +1252,11 @@ function EditorCanvas() {
             />
           )}
         </ReactFlow>
+        {tool === 'reaction' && reactionGhost && (
+          <div className="reaction-cursor" style={{ left: reactionGhost.x, top: reactionGhost.y }} aria-hidden="true">{reactionEmoji}</div>
+        )}
         {reactionPaletteOpen && (
           <div className="reaction-palette" role="dialog" aria-label="Reactions" onClick={(event) => event.stopPropagation()}>
-            <span className="reaction-palette__hint">
-              {selectedIds.length || selectedId ? 'Add to the selected node' : 'Pick one, then click the canvas or a node'}
-            </span>
             <div className="reaction-palette__grid">
               {REACTION_EMOJI.map((emoji) => (
                 <button key={emoji} type="button" className={emoji === reactionEmoji ? 'is-active' : ''} onClick={() => pickReaction(emoji)} aria-label={`React ${emoji}`}>
