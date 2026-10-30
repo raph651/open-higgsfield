@@ -1259,8 +1259,27 @@ function EditorCanvas() {
           const at = pinAt('reaction', target.id, reactionPoint(target, boxes));
           const stage = stageRef.current?.getBoundingClientRect();
           const width = 232;
-          const left = Math.min(Math.max(at.x * zoom + viewX - width / 2, 12), Math.max(12, (stage?.width ?? 1200) - width - 12));
-          const top = Math.max(at.y * zoom + viewY - 92, 12);
+          const height = 112;
+          const stageW = stage?.width ?? 1200;
+          const stageH = stage?.height ?? 800;
+          const px = at.x * zoom + viewX;
+          const py = at.y * zoom + viewY;
+          const gap = 22; // keeps the clicked reaction (and the ones stacked next to it) uncovered, so it can still be double-clicked
+          const box = target.nodeId ? boxes.get(target.nodeId) : undefined;
+          let left: number;
+          let top: number;
+          if (box) {
+            // Pinned to a node: open on the side away from the node, level with the reaction.
+            const outwardRight = at.x >= box.x + box.w / 2;
+            left = outwardRight ? px + gap : px - gap - width;
+            top = py - height / 2;
+          } else {
+            // Floating: open just above it.
+            left = px - width / 2;
+            top = py - height - gap;
+          }
+          left = Math.min(Math.max(left, 12), Math.max(12, stageW - width - 12));
+          top = Math.min(Math.max(top, 12), Math.max(12, stageH - height - 12));
           return (
             <div className="reaction-menu" style={{ left, top, width }} onClick={(event) => event.stopPropagation()} role="dialog" aria-label="Change reaction">
               <div className="reaction-palette__grid">
