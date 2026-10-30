@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { nodeAt, nodeBoxes, perimeterSlot, reactionPoint } from '../lib/anchors';
+import { anchoredPoint, nodeAt, nodeBoxes, perimeterSlot, reactionPoint } from '../lib/anchors';
 import {
   Background,
   BackgroundVariant,
@@ -885,7 +885,11 @@ function EditorCanvas() {
     pinMovedRef.current = true;
     window.setTimeout(() => { pinMovedRef.current = false; }, 80);
     const { x, y } = gesture.last;
-    if (gesture.kind === 'comment') moveComment(gesture.id, x, y);
+    if (gesture.kind === 'comment') {
+      // A comment dropped on a node pins to it (and follows it); dropped on empty canvas it floats free.
+      const target = nodeAt({ x, y }, boxes, 0);
+      moveComment(gesture.id, target ? { x, y, nodeId: target.id, dx: x - target.x, dy: y - target.y } : { x, y, nodeId: undefined, dx: undefined, dy: undefined });
+    }
     else if (gesture.kind === 'draft') setCommentDraft({ x, y });
     else {
       // A reaction dropped on a node pins to it (and follows it); dropped on empty canvas it floats free.
@@ -1171,7 +1175,7 @@ function EditorCanvas() {
               );
             })}
             {openComments.map((comment, index) => {
-              const at = pinAt('comment', comment.id, comment);
+              const at = pinAt('comment', comment.id, anchoredPoint(comment, boxes));
               return (
                 <button
                   key={comment.id}
@@ -1199,7 +1203,9 @@ function EditorCanvas() {
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (!commentText.trim()) return;
-                  const id = addComment(commentDraft.x, commentDraft.y, commentText);
+                  // a comment left on a node belongs to that node and moves with it
+                  const target = nodeAt(commentDraft, boxes, 0);
+                  const id = addComment(commentDraft.x, commentDraft.y, commentText, target ? { nodeId: target.id, dx: commentDraft.x - target.x, dy: commentDraft.y - target.y } : undefined);
                   setCommentDraft(null);
                   setCommentText('');
                   setActiveCommentId(id ?? null);
@@ -1297,7 +1303,7 @@ function EditorCanvas() {
         })()}
         {activeComment && (() => {
           // Comment card next to its pin (screen space, so it stays readable at any zoom and follows pan/zoom/drag).
-          const at = pinAt('comment', activeComment.id, activeComment);
+          const at = pinAt('comment', activeComment.id, anchoredPoint(activeComment, boxes));
           const stage = stageRef.current?.getBoundingClientRect();
           const width = 248;
           const px = at.x * zoom + viewX;

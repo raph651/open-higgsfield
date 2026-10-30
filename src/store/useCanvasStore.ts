@@ -77,8 +77,8 @@ interface WorkspaceState {
   openDetails: (id: string, explicit?: boolean) => void;
   closeDetails: () => void;
   applyRemoteDoc: (doc: CanvasDoc) => void;
-  addComment: (x: number, y: number, text: string) => string | undefined;
-  moveComment: (id: string, x: number, y: number) => void;
+  addComment: (x: number, y: number, text: string, anchor?: { nodeId: string; dx: number; dy: number }) => string | undefined;
+  moveComment: (id: string, patch: { x: number; y: number; nodeId?: string; dx?: number; dy?: number }) => void;
   addStroke: (stroke: CanvasStroke) => void;
   removeStroke: (id: string) => void;
   clearStrokes: () => void;
@@ -760,7 +760,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       })),
     );
   },
-  addComment: (x, y, text) => {
+  addComment: (x, y, text, anchor) => {
     const trimmed = text.trim();
     if (!trimmed) return undefined;
     const comment: CanvasComment = {
@@ -770,6 +770,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       text: trimmed.slice(0, 500),
       author: 'You',
       at: Date.now(),
+      ...anchor,
     };
     set((state) =>
       withActiveDoc(state, (doc) => ({ ...doc, comments: [...(doc.comments ?? []), comment] })),
@@ -778,11 +779,11 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
     return comment.id;
   },
 
-  moveComment: (id, x, y) => {
+  moveComment: (id, patch) => {
     set((state) =>
       withActiveDoc(state, (doc) => ({
         ...doc,
-        comments: (doc.comments ?? []).map((comment) => (comment.id === id ? { ...comment, x, y } : comment)),
+        comments: (doc.comments ?? []).map((comment) => (comment.id === id ? { ...comment, ...patch } : comment)),
         updatedAt: Date.now(),
       })),
     );

@@ -86,6 +86,10 @@ export interface CanvasComment {
   author: string;
   at: number;
   resolved?: boolean;
+  /** Pinned to this node: (x, y) is then only the fallback, the node's position plus (dx, dy) is used. */
+  nodeId?: string;
+  dx?: number;
+  dy?: number;
 }
 
 export interface CanvasStroke {

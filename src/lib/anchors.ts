@@ -1,4 +1,13 @@
-import type { CanvasNode, CanvasReaction } from '../types';
+import type { CanvasNode } from '../types';
+
+/** Anything that can be pinned to a node (a reaction or a comment). */
+export interface Anchored {
+  x: number;
+  y: number;
+  nodeId?: string;
+  dx?: number;
+  dy?: number;
+}
 
 export interface NodeBox {
   id: string;
@@ -32,12 +41,14 @@ export function nodeBoxes(nodes: CanvasNode[]): Map<string, NodeBox> {
   return boxes;
 }
 
-/** Where a reaction is drawn: pinned to its node when it has one, otherwise where it was dropped. */
-export function reactionPoint(reaction: CanvasReaction, boxes: Map<string, NodeBox>): { x: number; y: number } {
-  const box = reaction.nodeId ? boxes.get(reaction.nodeId) : undefined;
-  if (!box) return { x: reaction.x, y: reaction.y };
-  return { x: box.x + (reaction.dx ?? 0), y: box.y + (reaction.dy ?? 0) };
+/** Where a reaction or comment is drawn: pinned to its node when it has one, otherwise where it was dropped. */
+export function anchoredPoint(item: Anchored, boxes: Map<string, NodeBox>): { x: number; y: number } {
+  const box = item.nodeId ? boxes.get(item.nodeId) : undefined;
+  if (!box) return { x: item.x, y: item.y };
+  return { x: box.x + (item.dx ?? 0), y: box.y + (item.dy ?? 0) };
 }
+
+export const reactionPoint = anchoredPoint;
 
 /** The smallest node under a point (so a card inside a group wins over the group). `margin` also catches the corners. */
 export function nodeAt(point: { x: number; y: number }, boxes: Map<string, NodeBox>, margin = 0): NodeBox | null {
