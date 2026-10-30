@@ -11,7 +11,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { OPEN_MODELS } from '../data';
+import { LISTED_MODELS } from '../data';
 import type { ModelId, NodeKind } from '../types';
 
 interface AddNodePanelProps {
@@ -50,8 +50,8 @@ export function AddNodePanel({ onAdd, onUpload, onAssets, onSoon }: AddNodePanel
   const fileRef = useRef<HTMLInputElement>(null);
   const q = query.trim().toLowerCase();
   const matches = (label: string) => !q || label.toLowerCase().includes(q);
-  const imageModels = OPEN_MODELS.filter((model) => model.family === 'image');
-  const videoModels = OPEN_MODELS.filter((model) => model.family === 'video');
+  const imageModels = LISTED_MODELS.filter((model) => model.family === 'image');
+  const videoModels = LISTED_MODELS.filter((model) => model.family === 'video');
 
   return (
     <div className="add-node-panel">
@@ -191,7 +191,7 @@ export function AddNodePanel({ onAdd, onUpload, onAssets, onSoon }: AddNodePanel
             'Page',
             'Upload',
             'Assets',
-            ...OPEN_MODELS.map((model) => model.name),
+            ...LISTED_MODELS.map((model) => model.name),
           ].some((label) => label.toLowerCase().includes(q)) && (
             <p className="add-node-empty">No nodes match “{query}”.</p>
           )}

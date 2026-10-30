@@ -9,7 +9,7 @@ import {
   Upload,
   Wand2,
 } from 'lucide-react';
-import { ASPECTS, MODEL_BY_ID, NODE_META, OPEN_MODELS } from '../data';
+import { ASPECTS, MODEL_BY_ID, NODE_META, LISTED_MODELS } from '../data';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { fileToNodeMedia } from '../lib/media';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -136,7 +136,7 @@ export function Inspector() {
   }
 
   const meta = NODE_META[node.data.kind];
-  const model = (node.data.model ? MODEL_BY_ID[node.data.model] : null) ?? OPEN_MODELS[0];
+  const model = (node.data.model ? MODEL_BY_ID[node.data.model] : null) ?? LISTED_MODELS[0];
 
   return (
     <aside className="inspector">
@@ -177,7 +177,7 @@ export function Inspector() {
             <div className="inspector__section">
               <span className="section-label">Model</span>
               <div className="model-picker">
-                {OPEN_MODELS.map((item) => (
+                {LISTED_MODELS.map((item) => (
                   <button
                     key={item.id}
                     className={node.data.model === item.id ? 'model-option model-option--active' : 'model-option'}

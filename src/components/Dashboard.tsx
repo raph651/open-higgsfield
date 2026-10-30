@@ -19,7 +19,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { OPEN_MODELS, TEMPLATES } from '../data';
+import { LISTED_MODELS, TEMPLATES } from '../data';
 import type { ModelId } from '../types';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { relativeTime } from '../lib/format';
@@ -504,7 +504,7 @@ export function Dashboard() {
               seed the wrapper now, attach keys through a proxy later, keep the same graph.
             </p>
             <div className="model-grid">
-              {OPEN_MODELS.map((model) => (
+              {LISTED_MODELS.map((model) => (
                 <div className="model-card" key={model.id}>
                   <span className="model-card__swatch" style={{ background: model.accent }} />
                   <div className="model-card__top">

@@ -4672,7 +4672,13 @@ input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visib
 
 /* Static demo notice (GitHub Pages build only): a strip above the app, so it never covers the canvas */
 :root { --demo-h: 38px; }
-html[data-demo='static'] .app { margin-top: var(--demo-h); height: calc(100vh - var(--demo-h)); }
+html[data-demo='static'] #root { box-sizing: border-box; padding-top: var(--demo-h); }
+html[data-demo='static'] .app { height: 100%; min-height: 0; }
+/* the views size themselves to the viewport; make them fill the app instead so the page never scrolls under the strip */
+html[data-demo='static'] .home,
+html[data-demo='static'] .studio,
+html[data-demo='static'] .editor,
+html[data-demo='static'] .editor--canvas { height: 100%; min-height: 0; }
 .demo-banner {
   position: fixed;
   inset: 0 0 auto 0;
