@@ -1,20 +1,16 @@
-import { LoaderCircle, Play, Sparkles, Square } from 'lucide-react';
+import { LoaderCircle, Play, Square } from 'lucide-react';
 import { useCanvasStore } from '../store/useCanvasStore';
 
 export function RunBar() {
   const doc = useCanvasStore((state) => (state.activeId ? state.docs[state.activeId] : null));
   const running = useCanvasStore((state) => state.running);
   const runLabel = useCanvasStore((state) => state.runLabel);
-  const credits = useCanvasStore((state) => state.credits);
   const run = useCanvasStore((state) => state.run);
   const cancelRun = useCanvasStore((state) => state.cancelRun);
   const selectedId = useCanvasStore((state) => state.selectedId);
 
   if (!doc) return null;
   const modelCount = doc.nodes.filter((node) => node.data.kind === 'model').length;
-  const cost = doc.nodes
-    .filter((node) => node.data.kind === 'model')
-    .reduce((sum, node) => sum + (node.data.cost ?? 3), 0);
 
   return (
     <div className="runbar">
@@ -23,11 +19,6 @@ export function RunBar() {
         <strong>{doc.nodes.length} nodes · {doc.edges.length} links</strong>
       </div>
       <div className="runbar__divider" />
-      <div className="runbar__credits">
-        <Sparkles size={13} />
-        {credits} credits
-        <span className="muted">· ~{cost} full run</span>
-      </div>
       <div className="runbar__status">
         {running ? (
           <>

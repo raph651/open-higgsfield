@@ -26,6 +26,9 @@ interface SettingsState {
   accent: AccentId;
   /** local models that need files: true = ComfyUI can see them, false = not installed, missing = not checked yet */
   /** false once the user closes the generation side panel: clicking or typing in a node then no longer reopens it */
+  /** seconds per render of the last real run of each model on this machine */
+  runTimes: Partial<Record<ModelId, number>>;
+  recordRunTime: (id: ModelId, seconds: number) => void;
   detailsAutoOpen: boolean;
   setDetailsAutoOpen: (value: boolean) => void;
   installed: Partial<Record<ModelId, boolean>>;
@@ -69,6 +72,8 @@ export const useSettingsStore = create<SettingsState>()(
       locked: false,
       connectionOpen: false,
       accent: 'blue',
+      runTimes: {},
+      recordRunTime: (id, seconds) => set((state) => ({ runTimes: { ...state.runTimes, [id]: seconds } })),
       detailsAutoOpen: true,
       setDetailsAutoOpen: (detailsAutoOpen) => set({ detailsAutoOpen }),
       installed: {},
@@ -176,6 +181,7 @@ export const useSettingsStore = create<SettingsState>()(
         textEncoder: state.textEncoder,
         videoDraft: state.videoDraft,
         detailsAutoOpen: state.detailsAutoOpen,
+        runTimes: state.runTimes,
         accent: state.accent,
       }),
     },

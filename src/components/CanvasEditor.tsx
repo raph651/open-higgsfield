@@ -140,7 +140,6 @@ function EditorCanvas() {
   const run = useCanvasStore((state) => state.run);
   const cancelRun = useCanvasStore((state) => state.cancelRun);
   const running = useCanvasStore((state) => state.running);
-  const credits = useCanvasStore((state) => state.credits);
   const roomId = useRoomStore((state) => state.roomId);
   const peers = useRoomStore((state) => state.peers);
   const roomConnected = useRoomStore((state) => state.connected);
@@ -397,7 +396,6 @@ function EditorCanvas() {
   const pinMovedRef = useRef(false);
   const [titleMenu, setTitleMenu] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [creditsOpen, setCreditsOpen] = useState(true);
   const [minimapOpen, setMinimapOpen] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);

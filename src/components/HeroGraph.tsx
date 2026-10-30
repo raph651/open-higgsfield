@@ -148,7 +148,7 @@ export function HeroGraph({ onOpen }: HeroGraphProps) {
       </div>
       <div className="hero-graph__footer">
         <span><i className="status-dot status-dot--live" /> ComfyUI pipeline</span>
-        <span>4 nodes · 11 credits</span>
+        <span>4 nodes</span>
       </div>
     </div>
   );

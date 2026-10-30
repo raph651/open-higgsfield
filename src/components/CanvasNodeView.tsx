@@ -36,6 +36,8 @@ import { PromptMirror, syncMirrorScroll, syncPromptMirror } from './PromptMirror
 import { ToolPicker } from './ToolPicker';
 import { buildMentionGroups, buildMentionLookup, mentionHandle, PROMPT_PLACEHOLDER, type MentionItem } from '../lib/mentions';
 import { announcePopover, subscribePopoverOpen } from '../lib/popoverBus';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { runTimeLabel } from '../lib/runTime';
 
 const STATUS_LABEL: Record<string, string> = {
   idle: 'Idle',
@@ -53,6 +55,8 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
       ? 'var(--accent-soft)'
       : meta.color;
   const model = (data.model ? MODEL_BY_ID[data.model] : null) ?? MODELS[0];
+  const measured = useSettingsStore((state) => state.runTimes[model.id]);
+  const estimate = runTimeLabel(model, measured);
   const nodeTitle = data.kind === 'model' ? model?.name ?? data.title : data.title;
   const setSelected = useCanvasStore((state) => state.setSelected);
   const openDetails = useCanvasStore((state) => state.openDetails);
@@ -135,7 +139,6 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
       resolution: nextModel?.resolutions?.[0] ?? (family === 'video' ? '720p' : '1k'),
       duration: family === 'video' ? data.duration ?? 4 : data.duration,
       generateAudio: family === 'video',
-      cost: nextModel?.cost ?? data.cost,
       outputUrl: undefined,
       outputKind: undefined,
       status: 'idle',
@@ -649,7 +652,6 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                           outputUrl: undefined,
                           outputKind: undefined,
                           status: 'idle',
-                          cost: nextModel?.cost ?? model?.cost,
                         });
                       }}
                     />
@@ -662,7 +664,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                       >
                         {running ? <LoaderCircle size={10} className="spin" /> : <Sparkles size={10} />}
                         {running ? 'Rendering' : 'Generate'}
-                        {!running && <span>{data.cost ?? model?.cost ?? 3}</span>}
+                        {!running && estimate && <span title={estimate.title}>{estimate.label}</span>}
                       </button>
                       <button
                         type="button"

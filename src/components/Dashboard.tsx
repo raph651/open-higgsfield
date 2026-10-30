@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Boxes,
   Check,
+  ExternalLink,
   Clapperboard,
   Copy,
   Cpu,
@@ -20,6 +21,9 @@ import {
   Zap,
 } from 'lucide-react';
 import { LISTED_MODELS, TEMPLATES } from '../data';
+import { runTimeLabel } from '../lib/runTime';
+import { ADD_MODEL_DOCS, STATIC_DEMO } from '../lib/staticDemo';
+import { useSettingsStore } from '../store/useSettingsStore';
 import type { ModelId } from '../types';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { relativeTime } from '../lib/format';
@@ -46,6 +50,9 @@ export function Dashboard() {
   const customTemplates = useCanvasStore((state) => state.templates);
   const deleteTemplate = useCanvasStore((state) => state.deleteTemplate);
   const showToast = useCanvasStore((state) => state.showToast);
+  const installed = useSettingsStore((state) => state.installed);
+  const runTimes = useSettingsStore((state) => state.runTimes);
+  const openInstall = useSettingsStore((state) => state.openInstall);
   const [query, setQuery] = useState('');
   const [modelsOpen, setModelsOpen] = useState(false);
   const libraryRef = useRef<HTMLElement>(null);
@@ -494,44 +501,59 @@ export function Dashboard() {
 
       {modelsOpen && (
         <div className="modal-backdrop" onClick={() => setModelsOpen(false)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+          <div className="modal models-modal" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Models">
             <div className="modal__head">
-              <div><span className="eyebrow">ADAPTER LIBRARY</span><h2>Models, without the lock-in.</h2></div>
+              <h2>Models</h2>
               <button className="icon-button" onClick={() => setModelsOpen(false)} aria-label="Close"><X size={18} /></button>
             </div>
-            <p className="modal__lede">
-              Local models run through ComfyUI. API models are named seats for the real providers:
-              seed the wrapper now, attach keys through a proxy later, keep the same graph.
-            </p>
-            <div className="model-grid">
-              {LISTED_MODELS.map((model) => (
-                <div className="model-card" key={model.id}>
-                  <span className="model-card__swatch" style={{ background: model.accent }} />
-                  <div className="model-card__top">
-                    <strong>{model.name}</strong>
-                    <span className="badge">{model.runtime === 'api' ? 'API' : 'local'}</span>
+            {(['local', 'api'] as const).map((group) => {
+              const items = LISTED_MODELS.filter((model) => (model.runtime === 'api') === (group === 'api'));
+              if (!items.length) return null;
+              const both = LISTED_MODELS.some((model) => model.runtime === 'api') && LISTED_MODELS.some((model) => model.runtime !== 'api');
+              return (
+                <section key={group} className="model-group">
+                  {both && <h3 className="model-group__title">{group === 'api' ? 'API' : 'Local'}</h3>}
+                  <div className="model-grid">
+                    {items.map((model) => {
+                      const needsInstall = !STATIC_DEMO && Boolean(model.install) && installed[model.id] === false;
+                      const estimate = runTimeLabel(model, runTimes[model.id]);
+                      return (
+                        <div className="model-card" key={model.id}>
+                          <span className="model-card__swatch" style={{ background: model.accent }} />
+                          <div className="model-card__top">
+                            <strong>{model.name}</strong>
+                            {model.runtime === 'api' && <span className="badge">API</span>}
+                          </div>
+                          <p>{model.blurb}</p>
+                          <div className="model-card__foot">
+                            <span title={estimate?.title}>{estimate ? `${estimate.measured ? 'Last run' : 'Est.'} ${estimate.label}` : ''}</span>
+                            <button
+                              className="button button--ghost button--small"
+                              onClick={() => {
+                                setModelsOpen(false);
+                                if (needsInstall) {
+                                  openInstall(model.id);
+                                  return;
+                                }
+                                createCanvas();
+                                addNode('model', undefined, model.id);
+                                showToast(model.runtime === 'api' ? `${model.name} added — API wrapper required before it can run` : `${model.name} added to a new canvas`);
+                              }}
+                            >
+                              {needsInstall ? 'Install' : 'Use model'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <p>{model.blurb}</p>
-                  <div className="model-card__foot">
-                    <span>{model.cost} credits / render</span>
-                    <button
-                      className="button button--ghost button--small"
-                      onClick={() => {
-                        createCanvas();
-                        addNode('model', undefined, model.id);
-                        setModelsOpen(false);
-                        showToast(model.runtime === 'api' ? `${model.name} added — API wrapper required before it can run` : `${model.name} added to a new canvas`);
-                      }}
-                    >
-                      Use model
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                </section>
+              );
+            })}
             <div className="modal__foot">
-              <span><Check size={13} /> Same graph schema for every provider</span>
-              <span className="mono">src/lib/providers.ts</span>
+              <a className="models-modal__link" href={ADD_MODEL_DOCS} target="_blank" rel="noreferrer">
+                Add another local model <ExternalLink size={12} />
+              </a>
             </div>
           </div>
         </div>

@@ -47,7 +47,6 @@ interface WorkspaceState {
   historyPast: CanvasDoc[];
   historyFuture: CanvasDoc[];
   clipboard: { nodes: CanvasNode[]; edges: Edge[] } | null;
-  credits: number;
   running: boolean;
   runLabel: string;
   toast: string | null;
@@ -148,7 +147,6 @@ interface Persisted {
   templates: CanvasTemplate[];
   assets: CanvasAsset[];
   versions: CanvasVersion[];
-  credits: number;
   showPromo: boolean;
 }
 
@@ -318,7 +316,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
   historyPast: [],
   historyFuture: [],
   clipboard: null,
-  credits: persisted?.credits ?? 240,
   running: false,
   runLabel: '',
   toast: null,
@@ -1065,7 +1062,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
     if (kind === 'prompt') data.prompt = '';
     if (kind === 'model') {
       data.model = model.id;
-      data.cost = model.cost;
       data.aspect = '1:1';
       data.duration = 4;
       data.resolution = data.resolution ?? model.resolutions?.[0] ?? (model.family === 'video' ? '720p' : '1k');
@@ -1286,9 +1282,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
                 next.mentionAliases = [...new Set([...(node.data.mentionAliases ?? []), previous])];
               }
               if (node.data.kind === 'model') next.touched = true;
-              if (patch.model && MODEL_BY_ID[patch.model as ModelId]) {
-                next.cost = MODEL_BY_ID[patch.model as ModelId].cost;
-              }
               return { ...node, data: next };
             }
             if (rename && rename.from !== rename.to && node.data.kind === 'model' && node.data.prompt) {
@@ -1374,11 +1367,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
     const modelNodes = order
       .map((id) => doc.nodes.find((node) => node.id === id))
       .filter((node): node is CanvasNode => Boolean(node) && node!.data.kind === 'model');
-    const total = modelNodes.reduce((sum, node) => sum + (node.data.cost ?? 3), 0);
-    if (total > get().credits) {
-      state.showToast(`Needs ${total} credits — you have ${get().credits}`);
-      return;
-    }
     const settings = useSettingsStore.getState();
     if (STATIC_DEMO) state.showToast('Demo only: this draws placeholder artwork. Run locally for real generations.');
     if (settings.useComfy && settings.connection !== 'online') {
@@ -1520,7 +1508,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
         status: 'done',
         outputUrl: result.url,
         outputKind: result.kind,
-        cost: model.cost,
         lastRun: Date.now(),
         outputHistory: renderHistory,
         outputSeed: result.seed,
@@ -1532,7 +1519,10 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
         name: `${model.name} · ${current.data.title}`,
         source: 'generated',
       });
-      set((snapshot) => ({ credits: Math.max(0, snapshot.credits - model.cost) }));
+      // the run time of a real render, shown on the Generate button and the Models page
+      if (result.provider !== 'mock') {
+        useSettingsStore.getState().recordRunTime(model.id, result.latencyMs / 1000 / (1 + (result.alternates?.length ?? 0)));
+      }
       completed += 1;
       set({ runLabel: `${completed} / ${modelNodes.length} renders` });
       return true;
@@ -1634,7 +1624,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       selectedIds: [],
       historyPast: [],
       historyFuture: [],
-      credits: 240,
       view: 'dashboard',
       tab: 'canvases',
       showPromo: true,

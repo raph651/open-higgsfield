@@ -34,7 +34,6 @@ export interface CanvasNodeData extends Record<string, unknown> {
   outputUrl?: string;
   outputKind?: OutputKind;
   outputSeed?: number;
-  cost?: number;
   note?: string;
   label?: string;
   previewUrl?: string;
@@ -146,8 +145,9 @@ export interface ModelDef {
   name: string;
   family: OutputKind;
   runtime: ModelRuntime;
-  cost: number;
   blurb: string;
+  /** a rough run time for the Models page and the Generate button, with where the number comes from */
+  eta?: { label: string; note: string };
   accent: string;
   resolutions?: string[];
   /** present on local models that are not part of a default ComfyUI install */

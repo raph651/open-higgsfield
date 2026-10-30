@@ -15,7 +15,12 @@ All notable changes to Open Source Canvas. Newest first. The format follows [Kee
 - **Panning over a node.** Scrolling or two-finger panning now moves the canvas when the pointer is over a node's prompt box or its controls. The prompt box still scrolls its own text when it has more than fits.
 - **The side panel stays closed once you dismiss it.** Clicking or typing in a node no longer reopens it; the expand button at the bottom right of the node brings it back.
 
+### Changed
+- **Credits are gone.** Nothing is metered when you run locally, so the credit counter, the cost on the Generate button and the "Needs N credits" block are removed. The Generate button and the Models page show a run-time estimate instead: a rough guide for a model until you have run it, then the time of your last render on your machine.
+- **The Models page is simpler.** One title, grouped Local and API, the run-time estimate and a single action per model ("Use model", or "Install" when ComfyUI cannot find its files). The developer footer is replaced by a link to the guide for adding another local model.
+
 ### Added
+- **Adding a local model** is documented in [docs/ADDING_MODELS.md](docs/ADDING_MODELS.md).
 - **Reactions**: a palette of 16 (hearts in every colour, 🔥, 👍, 😂 and more). Click a placed reaction to change it or remove it.
 - **Rename a generation**: double-click the "RENDER" tag on a generation node, type a name, press Enter.
 - **Local models**: Wan 2.2 TI2V 5B (text and image to video, up to 720p at 24 fps) and Pika H3 Flex. A local model whose files ComfyUI cannot see shows an INSTALL badge; picking it, or running a node that uses it, opens the files to download, the folder for each, and a Check again button. Pika H3 Flex is listed with its requirements (custom node, MiniMax-H3 base weights, an 80 GB GPU) but runs from Pika's own ComfyUI template; this app has no workflow for it yet.

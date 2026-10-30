@@ -25,7 +25,6 @@ export function Inspector() {
   const renameCanvas = useCanvasStore((state) => state.renameCanvas);
   const run = useCanvasStore((state) => state.run);
   const running = useCanvasStore((state) => state.running);
-  const credits = useCanvasStore((state) => state.credits);
   const clearOutputs = useCanvasStore((state) => state.clearOutputs);
   const resetWorkspace = useCanvasStore((state) => state.resetWorkspace);
   const showToast = useCanvasStore((state) => state.showToast);
@@ -87,7 +86,6 @@ export function Inspector() {
             <div className="metric-row">
               <div><strong>{doc?.nodes.length ?? 0}</strong><span>nodes</span></div>
               <div><strong>{doc?.edges.length ?? 0}</strong><span>links</span></div>
-              <div><strong>{credits}</strong><span>credits</span></div>
             </div>
           </div>
           <div className="inspector__section">
@@ -194,7 +192,7 @@ export function Inspector() {
                     <span className="model-option__swatch" style={{ background: item.accent }} />
                     <span>
                       <strong>{item.name}</strong>
-                      <small>{item.family} · {item.cost} cr</small>
+                      <small>{item.family}</small>
                     </span>
                     <span className={`model-option__badge ${item.runtime === 'api' ? 'is-api' : ''}`}>
                       {item.runtime === 'api' ? 'API' : 'LOCAL'}
@@ -307,7 +305,7 @@ export function Inspector() {
               disabled={running}
             >
               <Wand2 size={15} />
-              {running ? 'Rendering…' : `Render node · ${model?.cost ?? 3} credits`}
+              {running ? 'Rendering…' : 'Render node'}
             </button>
           </>
         )}

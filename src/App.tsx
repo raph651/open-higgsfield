@@ -69,7 +69,6 @@ export default function App() {
         templates: state.templates,
         assets: state.assets,
         versions: state.versions,
-        credits: state.credits,
         showPromo: state.showPromo,
       };
       try {
