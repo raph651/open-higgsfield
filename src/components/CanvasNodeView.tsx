@@ -9,6 +9,7 @@ import {
   Bold,
   ChevronDown,
   Clock3,
+  Clapperboard,
   Image as ImageIcon,
   ImagePlus,
   Italic,
@@ -57,7 +58,9 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
   const model = (data.model ? MODEL_BY_ID[data.model] : null) ?? MODELS[0];
   const measured = useSettingsStore((state) => state.runTimes[model.id]);
   const estimate = runTimeLabel(model, measured);
-  const nodeTitle = data.kind === 'model' ? model?.name ?? data.title : data.title;
+  // A generation shows the name you gave it (double-click the title), otherwise its model's name.
+  const modelName = model?.name ?? data.title;
+  const nodeTitle = data.kind === 'model' ? data.label?.trim() || modelName : data.title;
   const setSelected = useCanvasStore((state) => state.setSelected);
   const openDetails = useCanvasStore((state) => state.openDetails);
   const openPage = useCanvasStore((state) => state.openPage);
@@ -387,12 +390,47 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
       )}
 
       <div className="node__head">
-        <span className="node__title">{nodeTitle}</span>
+        {data.kind === 'model' && renaming ? (
+          <input
+            className="node__title node__title--edit nodrag nopan"
+            autoFocus
+            maxLength={40}
+            value={nameDraft}
+            placeholder={modelName}
+            aria-label="Generation name"
+            onChange={(event) => setNameDraft(event.target.value)}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onFocus={(event) => event.currentTarget.select()}
+            onBlur={commitName}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key === 'Enter') commitName();
+              if (event.key === 'Escape') setRenaming(false);
+            }}
+          />
+        ) : (
+          <span
+            className="node__title"
+            title={data.kind === 'model' ? 'Double-click to rename' : undefined}
+            onDoubleClick={
+              data.kind === 'model'
+                ? (event) => {
+                    event.stopPropagation();
+                    setNameDraft(data.label?.trim() || '');
+                    setRenaming(true);
+                  }
+                : undefined
+            }
+          >
+            {nodeTitle}
+          </span>
+        )}
         {data.kind === 'model' && (
           <GenerationTypePicker
             variant="node"
             family={model?.family === 'video' ? 'video' : 'image'}
-            label={nodeTitle}
+            label={modelName}
             onChange={switchGenerationFamily}
           />
         )}
@@ -431,36 +469,9 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                 {outputKind === 'video' && (
                   <span className="node__play"><Play size={12} fill="currentColor" /> LTX</span>
                 )}
-                {renaming ? (
-                  <input
-                    className="node__media-tag node__media-tag--edit nodrag nopan"
-                    autoFocus
-                    maxLength={24}
-                    value={nameDraft}
-                    placeholder="RENDER"
-                    onChange={(event) => setNameDraft(event.target.value)}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onClick={(event) => event.stopPropagation()}
-                    onBlur={commitName}
-                    onKeyDown={(event) => {
-                      event.stopPropagation();
-                      if (event.key === 'Enter') commitName();
-                      if (event.key === 'Escape') setRenaming(false);
-                    }}
-                  />
-                ) : (
-                  <span
-                    className="node__media-tag node__media-tag--name nodrag"
-                    title="Double-click to rename"
-                    onDoubleClick={(event) => {
-                      event.stopPropagation();
-                      setNameDraft(data.label ?? '');
-                      setRenaming(true);
-                    }}
-                  >
-                    {data.label || 'RENDER'}
-                  </span>
-                )}
+                <span className="node__media-tag node__media-tag--icon" title={outputKind === 'video' ? 'Video' : 'Image'} aria-label={outputKind === 'video' ? 'Video' : 'Image'}>
+                  {outputKind === 'video' ? <Clapperboard size={12} /> : <ImageIcon size={12} />}
+                </span>
               </div>
             ) : status === 'error' ? (
               <div className="node__render node__render--error">
