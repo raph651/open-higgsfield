@@ -22,7 +22,7 @@ All notable changes to Open Source Canvas. Newest first. The format follows [Kee
 
 ### Added
 - **Adding a local model** is documented in [docs/ADDING_MODELS.md](docs/ADDING_MODELS.md).
-- **Reactions**: a palette of 16 (hearts in every colour, 🔥, 👍, 😂 and more). Click a placed reaction to change it or remove it.
+- **Reactions**: a palette of 16 (hearts in every colour, 🔥, 👍, 😂 and more). Click a placed reaction to change it; double-click it to remove it.
 - **Rename a generation**: double-click the "RENDER" tag on a generation node, type a name, press Enter.
 - **Local models**: Wan 2.2 TI2V 5B (text and image to video, up to 720p at 24 fps) and Pika H3 Flex. A local model whose files ComfyUI cannot see shows an INSTALL badge; picking it, or running a node that uses it, opens the files to download, the folder for each, and a Check again button. Pika H3 Flex is listed with its requirements (custom node, MiniMax-H3 base weights, an 80 GB GPU) but runs from Pika's own ComfyUI template; this app has no workflow for it yet.
 

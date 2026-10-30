@@ -1152,13 +1152,18 @@ function EditorCanvas() {
                   type="button"
                   className={`canvas-reaction nodrag nopan ${pinDrag?.id === reaction.id ? 'is-dragging' : ''}`}
                   style={{ left: at.x, top: at.y }}
-                  title="Drag to move · click to change or remove"
+                  title="Drag to move · click to change · double-click to remove"
                   onPointerDown={(event) => beginPinDrag(event, 'reaction', reaction.id, at)}
                   {...dragHandlers}
                   onClick={(event) => {
                     event.stopPropagation();
                     if (pinMovedRef.current) return;
                     setReactionMenuId((current) => (current === reaction.id ? null : reaction.id));
+                  }}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    setReactionMenuId(null);
+                    removeReaction(reaction.id);
                   }}
                 >
                   {reaction.emoji}
