@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ComfyClient } from '../lib/comfy';
+import { MODELS } from '../data';
 import { STATIC_DEMO } from '../lib/staticDemo';
+import type { ModelId } from '../types';
 import type { AccentId } from '../lib/theme';
 
 export type ConnectionStatus = 'unknown' | 'checking' | 'online' | 'offline' | 'disabled';
@@ -22,6 +24,19 @@ interface SettingsState {
   locked: boolean;   // the server is online but wants an access key we have not given it
   connectionOpen: boolean;
   accent: AccentId;
+  /** local models that need files: true = ComfyUI can see them, false = not installed, missing = not checked yet */
+  /** false once the user closes the generation side panel: clicking or typing in a node then no longer reopens it */
+  /** seconds per render of the last real run of each model on this machine */
+  runTimes: Partial<Record<ModelId, number>>;
+  recordRunTime: (id: ModelId, seconds: number) => void;
+  detailsAutoOpen: boolean;
+  setDetailsAutoOpen: (value: boolean) => void;
+  installed: Partial<Record<ModelId, boolean>>;
+  installChecking: boolean;
+  installModelId: ModelId | null;
+  openInstall: (id: ModelId) => void;
+  closeInstall: () => void;
+  checkInstalled: () => Promise<void>;
   setBaseUrl: (value: string) => void;
   setApiKey: (value: string) => void;
   setUseComfy: (value: boolean) => void;
@@ -57,6 +72,46 @@ export const useSettingsStore = create<SettingsState>()(
       locked: false,
       connectionOpen: false,
       accent: 'blue',
+      runTimes: {},
+      recordRunTime: (id, seconds) => set((state) => ({ runTimes: { ...state.runTimes, [id]: seconds } })),
+      detailsAutoOpen: true,
+      setDetailsAutoOpen: (detailsAutoOpen) => set({ detailsAutoOpen }),
+      installed: {},
+      installChecking: false,
+      installModelId: null,
+      openInstall: (installModelId) => {
+        set({ installModelId });
+        void get().checkInstalled();
+      },
+      closeInstall: () => set({ installModelId: null }),
+      checkInstalled: async () => {
+        if (STATIC_DEMO) return;
+        const { baseUrl, apiKey } = get();
+        set({ installChecking: true });
+        const client = new ComfyClient({ baseUrl, apiKey });
+        const lists = new Map<string, string[] | null>();
+        const installed: Partial<Record<ModelId, boolean>> = {};
+        for (const model of MODELS) {
+          if (!model.install) continue;
+          let state: boolean | undefined = true;
+          for (const item of model.install.files) {
+            const key = `${item.node}:${item.field}`;
+            if (!lists.has(key)) lists.set(key, await client.listChoices(item.node, item.field));
+            const list = lists.get(key);
+            if (!list) {
+              state = undefined; // ComfyUI would not say: do not block the model on a guess
+              break;
+            }
+            // loaders list names relative to their folder, with / or \\ for subfolders
+            if (!list.some((name) => name === item.file || name.endsWith(`/${item.file}`) || name.endsWith(`\\${item.file}`))) {
+              state = false;
+              break;
+            }
+          }
+          if (state !== undefined) installed[model.id] = state;
+        }
+        set({ installed, installChecking: false });
+      },
 
       setBaseUrl: (baseUrl) => set({ baseUrl }),
       setApiKey: (apiKey) => set({ apiKey }),
@@ -91,6 +146,7 @@ export const useSettingsStore = create<SettingsState>()(
             ramTotal: health.ramTotal ?? null,
             locked: !!health.locked,
           });
+          void get().checkInstalled();
           return true;
         } catch (error) {
           set({
@@ -124,6 +180,8 @@ export const useSettingsStore = create<SettingsState>()(
         videoCheckpoint: state.videoCheckpoint,
         textEncoder: state.textEncoder,
         videoDraft: state.videoDraft,
+        detailsAutoOpen: state.detailsAutoOpen,
+        runTimes: state.runTimes,
         accent: state.accent,
       }),
     },

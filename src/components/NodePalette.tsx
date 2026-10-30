@@ -63,7 +63,7 @@ export function NodePalette({ onAdd }: NodePaletteProps) {
               <span className="palette-model__dot" style={{ background: model.accent }} />
               <span>
                 <strong>{model.name}</strong>
-                <small>{model.family} · {model.cost} cr · {model.runtime === 'api' ? 'API' : 'local'}</small>
+                <small>{model.family} · {model.runtime === 'api' ? 'API' : 'local'}</small>
               </span>
             </button>
           ))}

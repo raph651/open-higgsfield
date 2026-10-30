@@ -35,6 +35,8 @@ export interface GenerationResult {
   provider: string;
   latencyMs: number;
   seed?: number;
+  /** the other renders of a batch (the first one is `url`); they go to the node's History strip */
+  alternates?: Array<{ url: string; kind: OutputKind; seed?: number }>;
 }
 
 export interface Provider {
@@ -53,15 +55,20 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export const mockProvider: Provider = {
   id: 'mock',
   label: 'Local mock',
-  async generate({ model, prompt, seed = 0, referenceCount, runIndex }) {
+  async generate({ model, prompt, seed = 0, referenceCount, runIndex, batch }) {
     const started = performance.now();
     await wait(900 + ((seed + runIndex * 137) % 700));
     const url = makeArtwork(`${prompt}:${model.id}:${seed}:${referenceCount}`, runIndex);
+    const count = Math.max(1, Math.min(4, batch ?? 1));
     return {
       url,
       kind: model.family,
       provider: 'mock',
       latencyMs: Math.round(performance.now() - started),
+      alternates: Array.from({ length: count - 1 }, (_, index) => ({
+        url: makeArtwork(`${prompt}:${model.id}:${seed}:${referenceCount}`, runIndex + index + 1),
+        kind: model.family,
+      })),
     };
   },
 };

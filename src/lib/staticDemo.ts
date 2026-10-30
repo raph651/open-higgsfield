@@ -9,6 +9,9 @@ if (STATIC_DEMO && typeof document !== 'undefined') document.documentElement.dat
 
 export const REPO_URL = 'https://github.com/raph651/open-source-canvas';
 
+/** How to add another local model to the app. */
+export const ADD_MODEL_DOCS = `${REPO_URL}/blob/main/docs/ADDING_MODELS.md`;
+
 /** Resolve a path under public/ against the deploy base ("/" locally, "/<repo>/" on GitHub Pages). */
 export const asset = (path: string): string => `${import.meta.env.BASE_URL}${path.replace(/^\//, '')}`;
 

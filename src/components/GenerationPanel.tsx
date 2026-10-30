@@ -23,6 +23,8 @@ import { ToolPicker } from './ToolPicker';
 import { announcePopover, subscribePopoverOpen } from '../lib/popoverBus';
 import { buildMentionGroups, buildMentionLookup, mentionHandle, PROMPT_PLACEHOLDER, type MentionItem } from '../lib/mentions';
 import { GenerationTypePicker, type GenerationFamily } from './GenerationTypePicker';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { runTimeLabel } from '../lib/runTime';
 
 export function GenerationPanel() {
   const doc = useCanvasStore((state) => (state.activeId ? state.docs[state.activeId] : null));
@@ -122,6 +124,8 @@ export function GenerationPanel() {
   }, [node.data.prompt]);
 
   const model = (node.data.model ? MODEL_BY_ID[node.data.model] : null) ?? MODELS[0];
+  const measured = useSettingsStore((state) => state.runTimes[model.id]);
+  const estimate = runTimeLabel(model, measured);
   const incoming = doc.edges
     .filter((edge) => edge.target === node.id)
     .map((edge) => doc.nodes.find((item) => item.id === edge.source))
@@ -232,7 +236,6 @@ export function GenerationPanel() {
       resolution: nextModel?.resolutions?.[0] ?? (family === 'video' ? '720p' : '1k'),
       duration: family === 'video' ? node.data.duration ?? 4 : node.data.duration,
       generateAudio: family === 'video',
-      cost: nextModel?.cost ?? node.data.cost,
       outputUrl: undefined,
       outputKind: undefined,
       status: 'idle',
@@ -370,7 +373,6 @@ export function GenerationPanel() {
                 outputUrl: undefined,
                 outputKind: undefined,
                 status: 'idle',
-                cost: nextModel?.cost ?? model.cost,
               });
             }}
           />
@@ -572,7 +574,7 @@ export function GenerationPanel() {
         >
           {running ? <LoaderCircle size={15} className="spin" /> : <Wand2 size={15} />}
           {running ? 'Rendering…' : node.data.status === 'error' ? 'Retry' : 'Generate'}
-          {!running && <span className="gen-cost"><Sparkles size={11} /> {model.cost}</span>}
+          {!running && estimate && <span className="gen-cost" title={estimate.title}>{estimate.label}</span>}
         </button>
       </div>
 

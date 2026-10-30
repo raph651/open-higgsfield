@@ -47,7 +47,6 @@ interface WorkspaceState {
   historyPast: CanvasDoc[];
   historyFuture: CanvasDoc[];
   clipboard: { nodes: CanvasNode[]; edges: Edge[] } | null;
-  credits: number;
   running: boolean;
   runLabel: string;
   toast: string | null;
@@ -74,14 +73,17 @@ interface WorkspaceState {
   setSelected: (id: string | null) => void;
   setDragging: (dragging: boolean) => void;
   markNodesTouched: (ids: string[]) => void;
-  openDetails: (id: string) => void;
+  /** `explicit` is the expand button: it opens the side panel even after the user dismissed it. */
+  openDetails: (id: string, explicit?: boolean) => void;
   closeDetails: () => void;
   applyRemoteDoc: (doc: CanvasDoc) => void;
-  addComment: (x: number, y: number, text: string) => void;
+  addComment: (x: number, y: number, text: string, anchor?: { nodeId: string; dx: number; dy: number }) => string | undefined;
+  moveComment: (id: string, patch: { x: number; y: number; nodeId?: string; dx?: number; dy?: number }) => void;
   addStroke: (stroke: CanvasStroke) => void;
   removeStroke: (id: string) => void;
   clearStrokes: () => void;
-  addReaction: (x: number, y: number, emoji: string) => void;
+  addReaction: (x: number, y: number, emoji: string, anchor?: { nodeId: string; dx: number; dy: number }) => void;
+  updateReaction: (id: string, patch: Partial<Pick<CanvasReaction, 'x' | 'y' | 'emoji' | 'nodeId' | 'dx' | 'dy'>>) => void;
   removeReaction: (id: string) => void;
   resolveComment: (id: string) => void;
   deleteComment: (id: string) => void;
@@ -145,7 +147,6 @@ interface Persisted {
   templates: CanvasTemplate[];
   assets: CanvasAsset[];
   versions: CanvasVersion[];
-  credits: number;
   showPromo: boolean;
 }
 
@@ -315,7 +316,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
   historyPast: [],
   historyFuture: [],
   clipboard: null,
-  credits: persisted?.credits ?? 240,
   running: false,
   runLabel: '',
   toast: null,
@@ -732,12 +732,21 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
     );
     get().showToast('Drawings cleared');
   },
-  addReaction: (x, y, emoji) => {
-    const reaction: CanvasReaction = { id: uid(), x, y, emoji, at: Date.now() };
+  addReaction: (x, y, emoji, anchor) => {
+    const reaction: CanvasReaction = { id: uid(), x, y, emoji, at: Date.now(), ...anchor };
     set((state) =>
       withActiveDoc(state, (doc) => ({
         ...doc,
         reactions: [...(doc.reactions ?? []), reaction],
+        updatedAt: Date.now(),
+      })),
+    );
+  },
+  updateReaction: (id, patch) => {
+    set((state) =>
+      withActiveDoc(state, (doc) => ({
+        ...doc,
+        reactions: (doc.reactions ?? []).map((reaction) => (reaction.id === id ? { ...reaction, ...patch } : reaction)),
         updatedAt: Date.now(),
       })),
     );
@@ -751,9 +760,9 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       })),
     );
   },
-  addComment: (x, y, text) => {
+  addComment: (x, y, text, anchor) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed) return undefined;
     const comment: CanvasComment = {
       id: uid(),
       x,
@@ -761,11 +770,23 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       text: trimmed.slice(0, 500),
       author: 'You',
       at: Date.now(),
+      ...anchor,
     };
     set((state) =>
       withActiveDoc(state, (doc) => ({ ...doc, comments: [...(doc.comments ?? []), comment] })),
     );
     get().showToast('Comment added');
+    return comment.id;
+  },
+
+  moveComment: (id, patch) => {
+    set((state) =>
+      withActiveDoc(state, (doc) => ({
+        ...doc,
+        comments: (doc.comments ?? []).map((comment) => (comment.id === id ? { ...comment, ...patch } : comment)),
+        updatedAt: Date.now(),
+      })),
+    );
   },
 
   resolveComment: (id) => {
@@ -800,8 +821,13 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       savedAt: Date.now(),
     })),
 
-  openDetails: (id) =>
-    set({ detailNodeId: id, selectedId: id, selectedIds: [id] }),
+  openDetails: (id, explicit = false) => {
+    const settings = useSettingsStore.getState();
+    if (explicit) settings.setDetailsAutoOpen(true);
+    // After the panel was dismissed, clicking or typing in a node only selects it; the expand button brings the panel back.
+    const show = explicit || settings.detailsAutoOpen;
+    set({ detailNodeId: show ? id : null, selectedId: id, selectedIds: [id] });
+  },
   closeDetails: () => set({ detailNodeId: null }),
   setDragging: (dragging) => set({ dragging }),
   markNodesTouched: (ids) =>
@@ -1037,7 +1063,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
     if (kind === 'prompt') data.prompt = '';
     if (kind === 'model') {
       data.model = model.id;
-      data.cost = model.cost;
       data.aspect = '1:1';
       data.duration = 4;
       data.resolution = data.resolution ?? model.resolutions?.[0] ?? (model.family === 'video' ? '720p' : '1k');
@@ -1258,9 +1283,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
                 next.mentionAliases = [...new Set([...(node.data.mentionAliases ?? []), previous])];
               }
               if (node.data.kind === 'model') next.touched = true;
-              if (patch.model && MODEL_BY_ID[patch.model as ModelId]) {
-                next.cost = MODEL_BY_ID[patch.model as ModelId].cost;
-              }
               return { ...node, data: next };
             }
             if (rename && rename.from !== rename.to && node.data.kind === 'model' && node.data.prompt) {
@@ -1346,11 +1368,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
     const modelNodes = order
       .map((id) => doc.nodes.find((node) => node.id === id))
       .filter((node): node is CanvasNode => Boolean(node) && node!.data.kind === 'model');
-    const total = modelNodes.reduce((sum, node) => sum + (node.data.cost ?? 3), 0);
-    if (total > get().credits) {
-      state.showToast(`Needs ${total} credits — you have ${get().credits}`);
-      return;
-    }
     const settings = useSettingsStore.getState();
     if (STATIC_DEMO) state.showToast('Demo only: this draws placeholder artwork. Run locally for real generations.');
     if (settings.useComfy && settings.connection !== 'online') {
@@ -1409,6 +1426,13 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
         return false;
       }
       const model = MODEL_BY_ID[current.data.model ?? 'sd-turbo'] ?? MODELS[0];
+      // A local model whose files ComfyUI cannot see is not enabled yet: say what to install instead of failing mid-run.
+      if (model.install && !STATIC_DEMO && useSettingsStore.getState().installed[model.id] === false) {
+        lastError = `${model.name} is not installed yet.`;
+        get().updateNodeData(current.id, { status: 'error', error: lastError });
+        useSettingsStore.getState().openInstall(model.id);
+        return false;
+      }
       const incoming = live.edges
         .filter((edge) => edge.target === current.id)
         .map((edge) => live.nodes.find((item) => item.id === edge.source))
@@ -1473,6 +1497,7 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       const seenUrls = new Set<string>();
       const renderHistory = [
         { url: result.url, kind: result.kind, at: Date.now(), seed: result.seed },
+        ...(result.alternates ?? []).map((item) => ({ url: item.url, kind: item.kind, at: Date.now() - 1, seed: item.seed })),
         ...(current.data.outputUrl
           ? [{ url: current.data.outputUrl, kind: current.data.outputKind ?? result.kind, at: current.data.lastRun ?? Date.now(), seed: current.data.outputSeed }]
           : []),
@@ -1484,7 +1509,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
         status: 'done',
         outputUrl: result.url,
         outputKind: result.kind,
-        cost: model.cost,
         lastRun: Date.now(),
         outputHistory: renderHistory,
         outputSeed: result.seed,
@@ -1496,7 +1520,10 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
         name: `${model.name} · ${current.data.title}`,
         source: 'generated',
       });
-      set((snapshot) => ({ credits: Math.max(0, snapshot.credits - model.cost) }));
+      // the run time of a real render, shown on the Generate button and the Models page
+      if (result.provider !== 'mock') {
+        useSettingsStore.getState().recordRunTime(model.id, result.latencyMs / 1000 / (1 + (result.alternates?.length ?? 0)));
+      }
       completed += 1;
       set({ runLabel: `${completed} / ${modelNodes.length} renders` });
       return true;
@@ -1598,7 +1625,6 @@ export const useCanvasStore = create<WorkspaceState>((set, get) => ({
       selectedIds: [],
       historyPast: [],
       historyFuture: [],
-      credits: 240,
       view: 'dashboard',
       tab: 'canvases',
       showPromo: true,

@@ -1,4 +1,4 @@
-import { BookOpen, Boxes, Layers, LayoutGrid, Plus, Sparkles, Users } from 'lucide-react';
+import { BookOpen, Boxes, Layers, LayoutGrid, Plus, Users } from 'lucide-react';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { Logo } from './Logo';
 
@@ -11,7 +11,6 @@ export function SideRail({ onModels }: SideRailProps) {
   const setTab = useCanvasStore((state) => state.setTab);
   const goDashboard = useCanvasStore((state) => state.goDashboard);
   const createCanvas = useCanvasStore((state) => state.createCanvas);
-  const credits = useCanvasStore((state) => state.credits);
   const showToast = useCanvasStore((state) => state.showToast);
 
   const go = (target: 'studio' | 'templates' | 'models' | 'community' | 'docs') => {
@@ -77,11 +76,6 @@ export function SideRail({ onModels }: SideRailProps) {
           <span className="status-dot status-dot--live" />
           Open beta
           <span className="rail__mit">MIT</span>
-        </div>
-        <div className="rail__credits">
-          <Sparkles size={12} />
-          <strong>{credits}</strong>
-          <span>credits</span>
         </div>
         <button className="rail__account" onClick={() => showToast('Local profile')}>
           <span className="avatar avatar--sm">AR</span>

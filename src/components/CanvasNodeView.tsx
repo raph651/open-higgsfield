@@ -9,6 +9,7 @@ import {
   Bold,
   ChevronDown,
   Clock3,
+  Clapperboard,
   Image as ImageIcon,
   ImagePlus,
   Italic,
@@ -20,7 +21,6 @@ import {
   Plus,
   Sparkles,
   Ungroup,
-  Upload,
 } from 'lucide-react';
 import { ASPECTS, MODELS, MODEL_BY_ID, NODE_META } from '../data';
 import { useCanvasStore } from '../store/useCanvasStore';
@@ -36,6 +36,9 @@ import { PromptMirror, syncMirrorScroll, syncPromptMirror } from './PromptMirror
 import { ToolPicker } from './ToolPicker';
 import { buildMentionGroups, buildMentionLookup, mentionHandle, PROMPT_PLACEHOLDER, type MentionItem } from '../lib/mentions';
 import { announcePopover, subscribePopoverOpen } from '../lib/popoverBus';
+import { useSettingsStore } from '../store/useSettingsStore';
+import { aspectLabel } from '../lib/format';
+import { runTimeLabel } from '../lib/runTime';
 
 const STATUS_LABEL: Record<string, string> = {
   idle: 'Idle',
@@ -53,7 +56,11 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
       ? 'var(--accent-soft)'
       : meta.color;
   const model = (data.model ? MODEL_BY_ID[data.model] : null) ?? MODELS[0];
-  const nodeTitle = data.kind === 'model' ? model?.name ?? data.title : data.title;
+  const measured = useSettingsStore((state) => state.runTimes[model.id]);
+  const estimate = runTimeLabel(model, measured);
+  // A generation shows the name you gave it (double-click the title), otherwise its model's name.
+  const modelName = model?.name ?? data.title;
+  const nodeTitle = data.kind === 'model' ? data.label?.trim() || modelName : data.title;
   const setSelected = useCanvasStore((state) => state.setSelected);
   const openDetails = useCanvasStore((state) => state.openDetails);
   const openPage = useCanvasStore((state) => state.openPage);
@@ -94,6 +101,21 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
   const pendingCaretRef = useRef<number | null>(null);
   const [mention, setMention] = useState<{ query: string; start: number; end: number } | null>(null);
   const [tableMenu, setTableMenu] = useState<'color' | 'more' | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  // Height of a model node when it is not selected. The in/out handles stay at this height so the edges do not slide
+  // down when the node grows to show its prompt and controls.
+  const [restingHeight, setRestingHeight] = useState<number | null>(null);
+  // The prompt box only keeps the mouse wheel for itself when it has more text than fits; otherwise the wheel pans the canvas.
+  const [promptOverflows, setPromptOverflows] = useState(false);
+  // The real pixel size of the output once it has loaded, for the caption under it.
+  const [outputSize, setOutputSize] = useState<{ url: string; width: number; height: number } | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const commitName = () => {
+    setRenaming(false);
+    const next = nameDraft.trim().slice(0, 24);
+    if (next !== (data.label ?? '')) updateNodeData(id, { label: next || undefined });
+  };
   const [quickNumberMenu, setQuickNumberMenu] = useState<'duration' | 'batch' | null>(null);
   const quickNumberSource = `node-number-${id}`;
   const [quickNumberPos, setQuickNumberPos] = useState<{ left: number; top: number; width: number } | null>(null);
@@ -122,7 +144,6 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
       resolution: nextModel?.resolutions?.[0] ?? (family === 'video' ? '720p' : '1k'),
       duration: family === 'video' ? data.duration ?? 4 : data.duration,
       generateAudio: family === 'video',
-      cost: nextModel?.cost ?? data.cost,
       outputUrl: undefined,
       outputKind: undefined,
       status: 'idle',
@@ -265,6 +286,20 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
     };
   }, [quickNumberMenu]);
 
+  const isSelected = Boolean(selected || storeSelected);
+  useLayoutEffect(() => {
+    const box = promptRef.current;
+    setPromptOverflows(Boolean(box && box.scrollHeight > box.clientHeight + 1));
+  }, [data.prompt, isSelected]);
+  useEffect(() => {
+    const element = rootRef.current;
+    if (!element || data.kind !== 'model' || isSelected) return;
+    const measure = () => setRestingHeight(element.offsetHeight || null);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [data.kind, isSelected]);
   if (data.kind === 'page') {
     return (
       <div
@@ -324,8 +359,15 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
     );
   }
 
+  // A node the user sized by hand does not grow, so its handles can stay centred.
+  const handleStyle =
+    data.kind === 'model' && storedHeight == null
+      ? { height: restingHeight ?? 213, bottom: 'auto' as const }
+      : undefined;
+
   return (
     <div
+      ref={rootRef}
       className={[
         'node',
         `node--${data.kind}`,
@@ -346,16 +388,51 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
         handleClassName="node-resizer__handle"
       />
       {data.kind !== 'prompt' && data.kind !== 'reference' && data.kind !== 'note' && data.kind !== 'shape' && data.kind !== 'table' && (
-        <Handle type="target" position={Position.Left} className="node-handle node-handle--in" />
+        <Handle type="target" position={Position.Left} className="node-handle node-handle--in" style={handleStyle} />
       )}
 
       <div className="node__head">
-        <span className="node__title">{nodeTitle}</span>
+        {data.kind === 'model' && renaming ? (
+          <input
+            className="node__title node__title--edit nodrag nopan"
+            autoFocus
+            maxLength={40}
+            value={nameDraft}
+            placeholder={modelName}
+            aria-label="Generation name"
+            onChange={(event) => setNameDraft(event.target.value)}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onFocus={(event) => event.currentTarget.select()}
+            onBlur={commitName}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              if (event.key === 'Enter') commitName();
+              if (event.key === 'Escape') setRenaming(false);
+            }}
+          />
+        ) : (
+          <span
+            className="node__title"
+            title={data.kind === 'model' ? 'Double-click to rename' : undefined}
+            onDoubleClick={
+              data.kind === 'model'
+                ? (event) => {
+                    event.stopPropagation();
+                    setNameDraft(data.label?.trim() || '');
+                    setRenaming(true);
+                  }
+                : undefined
+            }
+          >
+            {nodeTitle}
+          </span>
+        )}
         {data.kind === 'model' && (
           <GenerationTypePicker
             variant="node"
             family={model?.family === 'video' ? 'video' : 'image'}
-            label={nodeTitle}
+            label={modelName}
             onChange={switchGenerationFamily}
           />
         )}
@@ -394,7 +471,9 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                 {outputKind === 'video' && (
                   <span className="node__play"><Play size={12} fill="currentColor" /> LTX</span>
                 )}
-                <span className="node__media-tag">RENDER</span>
+                <span className="node__media-tag node__media-tag--icon" title={outputKind === 'video' ? 'Video' : 'Image'} aria-label={outputKind === 'video' ? 'Video' : 'Image'}>
+                  {outputKind === 'video' ? <Clapperboard size={12} /> : <ImageIcon size={12} />}
+                </span>
               </div>
             ) : status === 'error' ? (
               <div className="node__render node__render--error">
@@ -421,7 +500,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
 
             {(selected || storeSelected) && (
             <div
-              className="node__quick nodrag nowheel"
+              className="node__quick nodrag"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => event.stopPropagation()}
             >
@@ -430,7 +509,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                   <PromptMirror value={data.prompt ?? ''} lookup={mentionLookup} />
                   <textarea
                     ref={promptRef}
-                    className="nowheel"
+                    className={promptOverflows ? 'nowheel' : undefined}
                     value={data.prompt ?? ''}
                     placeholder={PROMPT_PLACEHOLDER}
                     rows={4}
@@ -586,7 +665,6 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                           outputUrl: undefined,
                           outputKind: undefined,
                           status: 'idle',
-                          cost: nextModel?.cost ?? model?.cost,
                         });
                       }}
                     />
@@ -599,14 +677,14 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                       >
                         {running ? <LoaderCircle size={10} className="spin" /> : <Sparkles size={10} />}
                         {running ? 'Rendering' : 'Generate'}
-                        {!running && <span>{data.cost ?? model?.cost ?? 3}</span>}
+                        {!running && estimate && <span title={estimate.title}>{estimate.label}</span>}
                       </button>
                       <button
                         type="button"
                         className="node__quick-more"
                         title="Open settings"
                         aria-label="Open settings"
-                        onClick={() => openDetails(id)}
+                        onClick={() => openDetails(id, true)}
                       >
                         <Maximize2 size={11} />
                       </button>
@@ -634,15 +712,6 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
                   ) : (
                     <img src={data.previewUrl} alt={data.label ?? 'Reference'} draggable={false} />
                   )}
-                  <button
-                    className="node__replace nodrag"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      fileRef.current?.click();
-                    }}
-                  >
-                    <Upload size={11} /> Replace
-                  </button>
                 </>
               ) : (
                 <button
@@ -667,17 +736,38 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
             <div className="node__media node__media--output">
               {outputUrl ? (
                 outputKind === 'video' ? (
-                  <video src={outputUrl} autoPlay muted loop playsInline />
+                  <video
+                    src={outputUrl}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    onLoadedMetadata={(event) => setOutputSize({ url: outputUrl, width: event.currentTarget.videoWidth, height: event.currentTarget.videoHeight })}
+                  />
                 ) : (
-                  <img src={outputUrl} alt="Final output" draggable={false} />
+                  <img
+                    src={outputUrl}
+                    alt="Final output"
+                    draggable={false}
+                    onLoad={(event) => setOutputSize({ url: outputUrl, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
+                  />
                 )
               ) : (
                 <div className="node__render node__render--quiet">
                   <strong>No output</strong>
                 </div>
               )}
-              {outputUrl && <span className="node__media-tag">DELIVERY</span>}
+              {outputUrl && (
+                <span className="node__media-tag node__media-tag--icon" title={outputKind === 'video' ? 'Video' : 'Image'} aria-label={outputKind === 'video' ? 'Video' : 'Image'}>
+                  {outputKind === 'video' ? <Clapperboard size={12} /> : <ImageIcon size={12} />}
+                </span>
+              )}
             </div>
+            {outputUrl && outputSize?.url === outputUrl && outputSize.width > 0 && (
+              <div className="node__meta-line" title="Aspect ratio and size in pixels">
+                {aspectLabel(outputSize.width, outputSize.height)} · {outputSize.width} × {outputSize.height}
+              </div>
+            )}
           </>
         )}
 
@@ -920,7 +1010,7 @@ export function CanvasNodeView({ id, data, selected }: NodeProps<CanvasNode>) {
       </div>
 
       {data.kind !== 'output' && data.kind !== 'note' && data.kind !== 'shape' && data.kind !== 'table' && (
-        <Handle type="source" position={Position.Right} className="node-handle node-handle--out" />
+        <Handle type="source" position={Position.Right} className="node-handle node-handle--out" style={handleStyle} />
       )}
     </div>
   );

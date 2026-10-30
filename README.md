@@ -159,6 +159,10 @@ listings, so a shared deployment does not leak other people's renders.
 How a render flows through the code is described in [docs/COMFYUI_RUNTIME.md](docs/COMFYUI_RUNTIME.md). The
 workflows themselves are plain ComfyUI API-format JSON in `workflows/`, built in `src/lib/comfyWorkflows.ts`.
 
+## Adding a local model
+
+See [docs/ADDING_MODELS.md](docs/ADDING_MODELS.md): the model entry, its ComfyUI workflow, and how the app checks that its files are installed.
+
 ## API models
 
 Some models are not run locally. ComfyUI can call them for you through its **partner nodes**, which run on the
@@ -239,6 +243,10 @@ Read each model card before commercial use. Generated people and products in the
 
 `deploy/README.md` shows how to publish a running copy behind Cloudflare Tunnel and Cloudflare Access, keeping
 ComfyUI private on your machine.
+
+## Changes
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 
 ## License
 

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { anchoredPoint, nodeAt, nodeBoxes, perimeterSlot, reactionPoint } from '../lib/anchors';
 import {
   Background,
   BackgroundVariant,
@@ -39,14 +40,13 @@ import {
   Search,
   Send,
   Share2,
-  Moon,
-  Sun,
   Sparkles,
   Redo2,
   Trash2,
   Ungroup,
   Undo2,
   X,
+  GripHorizontal,
 } from 'lucide-react';
 import { Logo } from './Logo';
 import { AddNodePanel } from './AddNodePanel';
@@ -62,12 +62,16 @@ import { ProviderBadge } from './ProviderBadge';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useRoomStore } from '../store/useRoomStore';
 import { useThemeStore } from '../store/useThemeStore';
+import { THEME_LABEL, ThemeIcon } from './ThemeToggle';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ACCENTS, getAccent } from '../lib/theme';
 import { fileToNodeMedia } from '../lib/media';
 import type { CanvasAsset, CanvasNodeData, CanvasStroke, ModelId, NodeKind, ShapeKind } from '../types';
 
 const nodeTypes: NodeTypes = { canvas: CanvasNodeView };
+
+/** Hearts in every colour, plus the quick reactions. */
+const REACTION_EMOJI = ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🔥', '👍', '👏', '😂', '😮', '✨', '👀', '💯'];
 
 const defaultEdgeOptions = {
   type: 'default',
@@ -135,7 +139,6 @@ function EditorCanvas() {
   const run = useCanvasStore((state) => state.run);
   const cancelRun = useCanvasStore((state) => state.cancelRun);
   const running = useCanvasStore((state) => state.running);
-  const credits = useCanvasStore((state) => state.credits);
   const roomId = useRoomStore((state) => state.roomId);
   const peers = useRoomStore((state) => state.peers);
   const roomConnected = useRoomStore((state) => state.connected);
@@ -148,6 +151,8 @@ function EditorCanvas() {
   const removeStroke = useCanvasStore((state) => state.removeStroke);
   const addReaction = useCanvasStore((state) => state.addReaction);
   const removeReaction = useCanvasStore((state) => state.removeReaction);
+  const updateReaction = useCanvasStore((state) => state.updateReaction);
+  const moveComment = useCanvasStore((state) => state.moveComment);
   const resolveComment = useCanvasStore((state) => state.resolveComment);
   const deleteComment = useCanvasStore((state) => state.deleteComment);
   const saveNow = useCanvasStore((state) => state.saveNow);
@@ -155,14 +160,14 @@ function EditorCanvas() {
 
   const stageRef = useRef<HTMLDivElement>(null);
   const { fitView, zoomIn, zoomOut, setCenter, screenToFlowPosition } = useReactFlow();
-  const { zoom } = useViewport();
+  const { x: viewX, y: viewY, zoom } = useViewport();
   const accentId = useSettingsStore((state) => state.accent);
   const accent = getAccent(accentId);
   const setAccent = useSettingsStore((state) => state.setAccent);
   const connection = useSettingsStore((state) => state.connection);
   const useComfy = useSettingsStore((state) => state.useComfy);
   const openConnection = useSettingsStore((state) => state.openConnection);
-  const theme = useThemeStore((state) => state.theme);
+  const themePreference = useThemeStore((state) => state.preference);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const ignoreSelectionRef = useRef(false);
   const renderedEdges = useMemo(
@@ -201,10 +206,39 @@ function EditorCanvas() {
 
   const selectTool = (next: DockTool) => {
     const resolved = next === tool && next !== 'select' ? 'select' : next;
+    if (resolved === 'reaction') {
+      // Opens the palette: pick an emoji and it goes on the selected nodes, or arms the tool for a click on the canvas.
+      setTool('reaction');
+      setCommentMode(false);
+      setCommentDraft(null);
+      setShapeMenuOpen(false);
+      setReactionPaletteOpen(true);
+      return;
+    }
+    setReactionPaletteOpen(false);
     setTool(resolved);
     setCommentMode(resolved === 'comment');
     if (resolved !== 'comment') setCommentDraft(null);
     setShapeMenuOpen(false);
+  };
+
+  const pickReaction = (emoji: string) => {
+    setReactionEmoji(emoji);
+    setReactionPaletteOpen(false);
+    const live = useCanvasStore.getState();
+    const liveDoc = live.activeId ? live.docs[live.activeId] : null;
+    const ids = [...new Set([...live.selectedIds, ...(live.selectedId ? [live.selectedId] : [])])];
+    const boxes = liveDoc ? nodeBoxes(liveDoc.nodes) : null;
+    let placed = 0;
+    for (const id of ids) {
+      const box = boxes?.get(id);
+      if (!liveDoc || !box) continue;
+      const taken = (liveDoc.reactions ?? []).filter((reaction) => reaction.nodeId === id).length;
+      const slot = perimeterSlot(box, taken);
+      addReaction(box.x + slot.dx, box.y + slot.dy, emoji, { nodeId: id, ...slot });
+      placed += 1;
+    }
+    if (placed) setTool('select');
   };
 
   const insertAnnotation = (
@@ -342,9 +376,26 @@ function EditorCanvas() {
   const [commentMode, setCommentMode] = useState(false);
   const [commentDraft, setCommentDraft] = useState<{ x: number; y: number } | null>(null);
   const [commentText, setCommentText] = useState('');
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+  const [reactionEmoji, setReactionEmoji] = useState('💜');
+  const [reactionPaletteOpen, setReactionPaletteOpen] = useState(false);
+  const [reactionMenuId, setReactionMenuId] = useState<string | null>(null);
+  // Where the armed reaction rides along with the pointer (null when the pointer is off the canvas or over the dock).
+  const [reactionGhost, setReactionGhost] = useState<{ x: number; y: number } | null>(null);
+  // Live position of a reaction / comment pin / new-comment box while it is being dragged (committed on release).
+  const [pinDrag, setPinDrag] = useState<{ kind: 'reaction' | 'comment' | 'draft'; id: string; x: number; y: number } | null>(null);
+  const pinGesture = useRef<{
+    kind: 'reaction' | 'comment' | 'draft';
+    id: string;
+    grab: { x: number; y: number };
+    startX: number;
+    startY: number;
+    moved: boolean;
+    last: { x: number; y: number };
+  } | null>(null);
+  const pinMovedRef = useRef(false);
   const [titleMenu, setTitleMenu] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [creditsOpen, setCreditsOpen] = useState(true);
   const [minimapOpen, setMinimapOpen] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);
@@ -545,6 +596,9 @@ function EditorCanvas() {
         setTool('select');
         setCommentMode(false);
         setCommentDraft(null);
+        setActiveCommentId(null);
+        setReactionMenuId(null);
+        setReactionPaletteOpen(false);
         return;
       }
       if (!mod && !editing) {
@@ -785,10 +839,84 @@ function EditorCanvas() {
     );
   });
 
+  const boxes = nodeBoxes(doc.nodes);
+
+  // Reactions, comment pins and the new-comment box all drag the same way: grab, move past 4px, drop.
+  const beginPinDrag = (
+    event: ReactPointerEvent<HTMLElement>,
+    kind: 'reaction' | 'comment' | 'draft',
+    id: string,
+    origin: { x: number; y: number },
+  ) => {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Capture only keeps the drag alive outside the pin; without it the drag still works.
+    }
+    const start = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    pinGesture.current = {
+      kind,
+      id,
+      grab: { x: start.x - origin.x, y: start.y - origin.y },
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+      last: origin,
+    };
+  };
+  const movePinDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    const gesture = pinGesture.current;
+    if (!gesture) return;
+    if (!gesture.moved && Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) < 4) return;
+    gesture.moved = true;
+    const point = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    gesture.last = { x: point.x - gesture.grab.x, y: point.y - gesture.grab.y };
+    setPinDrag({ kind: gesture.kind, id: gesture.id, ...gesture.last });
+  };
+  const endPinDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    const gesture = pinGesture.current;
+    pinGesture.current = null;
+    if (!gesture) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    setPinDrag(null);
+    if (!gesture.moved) return;
+    pinMovedRef.current = true;
+    window.setTimeout(() => { pinMovedRef.current = false; }, 80);
+    const { x, y } = gesture.last;
+    if (gesture.kind === 'comment') {
+      // A comment dropped on a node pins to it (and follows it); dropped on empty canvas it floats free.
+      const target = nodeAt({ x, y }, boxes, 0);
+      moveComment(gesture.id, target ? { x, y, nodeId: target.id, dx: x - target.x, dy: y - target.y } : { x, y, nodeId: undefined, dx: undefined, dy: undefined });
+    }
+    else if (gesture.kind === 'draft') setCommentDraft({ x, y });
+    else {
+      // A reaction dropped on a node pins to it (and follows it); dropped on empty canvas it floats free.
+      const target = nodeAt({ x, y }, boxes, 20);
+      if (target) updateReaction(gesture.id, { x, y, nodeId: target.id, dx: x - target.x, dy: y - target.y });
+      else updateReaction(gesture.id, { x, y, nodeId: undefined, dx: undefined, dy: undefined });
+    }
+  };
+  const dragHandlers = {
+    onPointerMove: movePinDrag,
+    onPointerUp: endPinDrag,
+    onPointerCancel: endPinDrag,
+  };
+  const pinAt = (kind: 'reaction' | 'comment' | 'draft', id: string, fallback: { x: number; y: number }) =>
+    pinDrag && pinDrag.kind === kind && pinDrag.id === id ? { x: pinDrag.x, y: pinDrag.y } : fallback;
+  const activeComment = openComments.find((comment) => comment.id === activeCommentId) ?? null;
+
   return (
     <div className={`editor editor--canvas ${dragging ? 'is-node-dragging' : ''}`}>
       <div
-        className={`canvas-stage ${dragActive ? 'is-drag-active' : ''} ${tool === 'erase' ? 'is-erasing' : ''}`}
+        className={`canvas-stage ${dragActive ? 'is-drag-active' : ''} ${tool === 'erase' ? 'is-erasing' : ''} ${tool === 'reaction' ? 'is-placing-reaction' : ''}`}
+        onPointerMove={(event) => {
+          if (tool !== 'reaction') return;
+          const overChrome = (event.target as Element | null)?.closest?.('.reaction-palette, .canvas-dock');
+          setReactionGhost(overChrome ? null : { x: event.clientX, y: event.clientY });
+        }}
+        onPointerLeave={() => setReactionGhost(null)}
         onClickCapture={(event) => {
           if (!(event.target instanceof Element) || !event.target.classList.contains('react-flow__pane')) return;
           if (!selectedId && !canvasMenu) return;
@@ -840,9 +968,12 @@ function EditorCanvas() {
             setTitleMenu(false);
             setShapeMenuOpen(false);
             setConnectMenu(null);
+            setActiveCommentId(null);
+            setReactionMenuId(null);
+            setReactionPaletteOpen(false);
             const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
             if (tool === 'reaction') {
-              addReaction(position.x, position.y, '💜');
+              addReaction(position.x, position.y, reactionEmoji);
               selectTool('select');
               return;
             }
@@ -854,6 +985,20 @@ function EditorCanvas() {
             }
           }}
           onNodeClick={(event, node) => {
+            if (tool === 'reaction' || commentMode) {
+              const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+              if (tool === 'reaction') {
+                const box = nodeBoxes(doc.nodes).get(node.id);
+                addReaction(position.x, position.y, reactionEmoji, box ? { nodeId: node.id, dx: position.x - box.x, dy: position.y - box.y } : undefined);
+                selectTool('select');
+              } else {
+                setCommentDraft(position);
+                setCommentMode(false);
+                setTool('select');
+                setChatOpen(false);
+              }
+              return;
+            }
             if (event.metaKey || event.ctrlKey || event.shiftKey) return;
             if ((event.target as Element | null)?.closest?.('textarea, input, [contenteditable="true"]')) return;
             if (node.data.kind === 'model') {
@@ -1009,52 +1154,78 @@ function EditorCanvas() {
                 />
               )}
             </svg>
-            {(doc.reactions ?? []).map((reaction) => (
-              <button
-                key={reaction.id}
-                type="button"
-                className="canvas-reaction nodrag nopan"
-                style={{ left: reaction.x, top: reaction.y }}
-                title="Remove reaction"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  removeReaction(reaction.id);
-                }}
-              >
-                {reaction.emoji}
-              </button>
-            ))}
-            {openComments.map((comment, index) => (
-              <button
-                key={comment.id}
-                className="comment-pin nodrag nopan"
-                style={{ left: comment.x, top: comment.y }}
-                title={comment.text}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setChatTab('comments');
-                  setChatOpen(true);
-                }}
-              >
-                {index + 1}
-              </button>
-            ))}
+            {(doc.reactions ?? []).map((reaction) => {
+              const at = pinAt('reaction', reaction.id, reactionPoint(reaction, boxes));
+              return (
+                <button
+                  key={reaction.id}
+                  type="button"
+                  className={`canvas-reaction nodrag nopan ${pinDrag?.id === reaction.id ? 'is-dragging' : ''}`}
+                  style={{ left: at.x, top: at.y }}
+                  title="Drag to move · click to change · double-click to remove"
+                  onPointerDown={(event) => beginPinDrag(event, 'reaction', reaction.id, at)}
+                  {...dragHandlers}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (pinMovedRef.current) return;
+                    setReactionMenuId((current) => (current === reaction.id ? null : reaction.id));
+                  }}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    setReactionMenuId(null);
+                    removeReaction(reaction.id);
+                  }}
+                >
+                  {reaction.emoji}
+                </button>
+              );
+            })}
+            {openComments.map((comment, index) => {
+              const at = pinAt('comment', comment.id, anchoredPoint(comment, boxes));
+              return (
+                <button
+                  key={comment.id}
+                  type="button"
+                  className={`comment-pin nodrag nopan ${pinDrag?.id === comment.id ? 'is-dragging' : ''} ${activeCommentId === comment.id ? 'is-active' : ''}`}
+                  style={{ left: at.x, top: at.y }}
+                  title="Drag to move · click to open"
+                  onPointerDown={(event) => beginPinDrag(event, 'comment', comment.id, at)}
+                  {...dragHandlers}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (pinMovedRef.current) return;
+                    setActiveCommentId((current) => (current === comment.id ? null : comment.id));
+                  }}
+                >
+                  {index + 1}
+                </button>
+              );
+            })}
             {commentDraft && (
               <form
-                className="comment-composer nodrag nopan"
-                style={{ left: commentDraft.x, top: commentDraft.y }}
+                className={`comment-composer nodrag nopan ${pinDrag?.kind === 'draft' ? 'is-dragging' : ''}`}
+                style={{ left: pinAt('draft', 'draft', commentDraft).x, top: pinAt('draft', 'draft', commentDraft).y }}
                 onClick={(event) => event.stopPropagation()}
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (!commentText.trim()) return;
-                  addComment(commentDraft.x, commentDraft.y, commentText);
+                  // a comment left on a node belongs to that node and moves with it
+                  const target = nodeAt(commentDraft, boxes, 0);
+                  const id = addComment(commentDraft.x, commentDraft.y, commentText, target ? { nodeId: target.id, dx: commentDraft.x - target.x, dy: commentDraft.y - target.y } : undefined);
                   setCommentDraft(null);
                   setCommentText('');
-                  setChatTab('comments');
-                  setChatOpen(true);
+                  setActiveCommentId(id ?? null);
                 }}
               >
-                <span className="eyebrow">NEW COMMENT</span>
+                <div
+                  className="comment-composer__handle"
+                  title="Drag to move"
+                  onPointerDown={(event) => beginPinDrag(event, 'draft', 'draft', commentDraft)}
+                  {...dragHandlers}
+                >
+                  <GripHorizontal size={12} />
+                  <span className="eyebrow">NEW COMMENT</span>
+                </div>
                 <textarea
                   autoFocus
                   value={commentText}
@@ -1080,6 +1251,92 @@ function EditorCanvas() {
             />
           )}
         </ReactFlow>
+        {tool === 'reaction' && reactionGhost && (
+          <div className="reaction-cursor" style={{ left: reactionGhost.x, top: reactionGhost.y }} aria-hidden="true">{reactionEmoji}</div>
+        )}
+        {reactionPaletteOpen && (
+          <div className="reaction-palette" role="dialog" aria-label="Reactions" onClick={(event) => event.stopPropagation()}>
+            <div className="reaction-palette__grid">
+              {REACTION_EMOJI.map((emoji) => (
+                <button key={emoji} type="button" className={emoji === reactionEmoji ? 'is-active' : ''} onClick={() => pickReaction(emoji)} aria-label={`React ${emoji}`}>
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {(() => {
+          const target = (doc.reactions ?? []).find((reaction) => reaction.id === reactionMenuId);
+          if (!target) return null;
+          const at = pinAt('reaction', target.id, reactionPoint(target, boxes));
+          const stage = stageRef.current?.getBoundingClientRect();
+          const width = 232;
+          const height = 112;
+          const stageW = stage?.width ?? 1200;
+          const stageH = stage?.height ?? 800;
+          const px = at.x * zoom + viewX;
+          const py = at.y * zoom + viewY;
+          const gap = 22; // keeps the clicked reaction (and the ones stacked next to it) uncovered, so it can still be double-clicked
+          const box = target.nodeId ? boxes.get(target.nodeId) : undefined;
+          let left: number;
+          let top: number;
+          if (box) {
+            // Pinned to a node: open on the side away from the node, level with the reaction.
+            const outwardRight = at.x >= box.x + box.w / 2;
+            left = outwardRight ? px + gap : px - gap - width;
+            top = py - height / 2;
+          } else {
+            // Floating: open just above it.
+            left = px - width / 2;
+            top = py - height - gap;
+          }
+          left = Math.min(Math.max(left, 12), Math.max(12, stageW - width - 12));
+          top = Math.min(Math.max(top, 12), Math.max(12, stageH - height - 12));
+          return (
+            <div className="reaction-menu" style={{ left, top, width }} onClick={(event) => event.stopPropagation()} role="dialog" aria-label="Change reaction">
+              <div className="reaction-palette__grid">
+                {REACTION_EMOJI.map((emoji) => (
+                  <button key={emoji} type="button" className={emoji === target.emoji ? 'is-active' : ''} onClick={() => { updateReaction(target.id, { emoji }); setReactionMenuId(null); }} aria-label={`Change to ${emoji}`}>
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="reaction-menu__remove" onClick={() => { removeReaction(target.id); setReactionMenuId(null); }}>
+                <Trash2 size={11} /> Remove
+              </button>
+            </div>
+          );
+        })()}
+        {activeComment && (() => {
+          // Comment card next to its pin (screen space, so it stays readable at any zoom and follows pan/zoom/drag).
+          const at = pinAt('comment', activeComment.id, anchoredPoint(activeComment, boxes));
+          const stage = stageRef.current?.getBoundingClientRect();
+          const width = 248;
+          const px = at.x * zoom + viewX;
+          const py = at.y * zoom + viewY;
+          const stageW = stage?.width ?? 1200;
+          const stageH = stage?.height ?? 800;
+          const left = px + 18 + width > stageW - 12 ? Math.max(12, px - 18 - width) : px + 18;
+          const top = Math.min(Math.max(px >= 0 ? py - 44 : 12, 12), Math.max(12, stageH - 190));
+          return (
+            <div className="comment-popover" style={{ left, top, width }} onClick={(event) => event.stopPropagation()} role="dialog" aria-label="Comment">
+              <div className="comment-popover__top">
+                <strong>{activeComment.author}</strong>
+                <span>{new Date(activeComment.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                <button type="button" onClick={() => setActiveCommentId(null)} aria-label="Close comment"><X size={12} /></button>
+              </div>
+              <p>{activeComment.text}</p>
+              <div className="comment-popover__actions">
+                <button type="button" onClick={() => { resolveComment(activeComment.id); setActiveCommentId(null); }}>
+                  <Check size={11} /> Resolve
+                </button>
+                <button type="button" onClick={() => { deleteComment(activeComment.id); setActiveCommentId(null); }} title="Delete comment">
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {dragActive && (
           <div className="canvas-drop">
@@ -1217,8 +1474,8 @@ function EditorCanvas() {
                         setAccountOpen(false);
                       }}
                     >
-                      {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-                      {theme === 'dark' ? 'Bright theme' : 'Night theme'}
+                      <ThemeIcon preference={themePreference} size={14} />
+                      Theme: {themePreference === 'system' ? 'Auto' : THEME_LABEL[themePreference]}
                     </button>
                     <span className="account-menu__label">Accent</span>
                     <div className="account-menu__swatches">
@@ -1335,8 +1592,10 @@ function EditorCanvas() {
             <button
               className="floating-inspector__close"
               onClick={() => {
-                if (selectedNode?.data.kind === 'model') closeDetails();
-                else clearSelection();
+                if (selectedNode?.data.kind === 'model') {
+                  closeDetails();
+                  useSettingsStore.getState().setDetailsAutoOpen(false);
+                } else clearSelection();
               }}
               aria-label="Close inspector"
             >
